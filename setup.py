@@ -15,9 +15,11 @@ setup(
     # ],
     packages = ['wamopacker'],
     entry_points = dict(console_scripts = ['wamopacker=wamopacker.script:run']),
+    package_data = {
+        '': ['LICENSE', 'requirements.txt'],
+        'wamopacker': ['data/templates/*']
+    },
     #TODO
-    # package_data = {
-    # },
     # install_requires = [],
     # setup_requires = [],
     # tests_require = [],

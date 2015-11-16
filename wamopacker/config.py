@@ -31,8 +31,6 @@ class Config(object):
 
     def __init__(self, config_file_name):
         self._config = read_config_file(config_file_name)
-        from pprint import pprint
-        pprint(self._config)
 
     def __getattr__(self, name):
         if name not in self._config:
