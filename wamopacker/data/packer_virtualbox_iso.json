@@ -1,0 +1,26 @@
+{
+  "type": "virtualbox-iso",
+  "headless": true,
+  "vboxmanage": [
+    ["modifyvm", "{{ .Name }}", "--nictype1", "virtio"]
+  ],
+
+  "boot_command": [
+    "<esc><esc><enter><wait>",
+    "/install/vmlinuz noapic preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg <wait>",
+    "debian-installer=en_GB auto locale=en_GB kbd-chooser/method=gb <wait>",
+    "hostname={{ .Name }} <wait>",
+    "fb=false debconf/frontend=noninteractive <wait>",
+    "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=GB keyboard-configuration/variant=GB console-setup/ask_detect=false <wait>",
+    "initrd=/install/initrd.gz -- <enter><wait>"
+  ],
+  "boot_wait": "5s",
+
+  "guest_additions_path": "/tmp/VBoxGuestAdditions.iso",
+
+  "http_directory": "packer_http",
+  "http_port_min" : 9000,
+  "http_port_max" : 9010,
+
+  "ssh_wait_timeout": "20m"
+}
