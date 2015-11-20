@@ -1,9 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 from yaml import safe_load
 from copy import deepcopy
+
+
+CONFIG_DEFAULTS = {
+    'virtualbox_iso_checksum_tyoe': 'md5',
+    'virtualbox_user': 'ubuntu',
+    'virtualbox_password': 'ubuntu',
+    'virtualbox_guest_os_type': 'Ubuntu_64'
+}
 
 
 def read_config_file(file_name):
@@ -30,10 +38,15 @@ class ConfigException(Exception):
 class Config(object):
 
     def __init__(self, config_file_name):
-        self._config = read_config_file(config_file_name)
+        self._config = deepcopy(CONFIG_DEFAULTS)
+        config_file = read_config_file(config_file_name)
+        self._config.update(config_file)
 
-    def __getattr__(self, name):
-        if name not in self._config:
-            raise ConfigException("Config attribute not found: name=%s" % name)
+    def __getattr__(self, item):
+        if item not in self._config:
+            raise ConfigException("Config attribute not found: name=%s" % item)
 
-        return deepcopy(self._config[name])
+        return deepcopy(self._config[item])
+
+    def __contains__(self, item):
+        return item in self._config

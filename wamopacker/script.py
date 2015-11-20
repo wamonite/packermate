@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 import sys
 import argparse
-from .config import Config, ConfigException
+from .config import Config
 from .command import Builder
 from collections import OrderedDict
 
@@ -22,7 +22,13 @@ def parse_arguments():
         formatter_class = argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('-c', '--config', default = 'packer.yml', help = 'config file')
-    parser.add_argument('command', nargs='?', choices = COMMAND_LOOKUP.keys(), default = COMMAND_LOOKUP.keys()[0], help = 'command')
+    parser.add_argument(
+        'command',
+        nargs = '?',
+        choices = COMMAND_LOOKUP.keys(),
+        default = COMMAND_LOOKUP.keys()[0],
+        help = 'command'
+    )
     args = parser.parse_args()
 
     return args
