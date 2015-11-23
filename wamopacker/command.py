@@ -7,6 +7,8 @@ from tempfile import mkdtemp
 from shutil import rmtree
 from jinja2 import Environment, FileSystemLoader
 from json import load, dump
+from .process import run_command
+
 
 PRESEED_FILE_NAME = 'preseed.cfg'
 PACKER_CONFIG_FILE_NAME = 'packer.json'
@@ -111,8 +113,8 @@ class Builder(object):
     def _write_virtualbox_iso_preseed(self, virtualbox_config, temp_dir):
         # create the packer_http directory
         packer_http_dir = self._config.virtualbox_packer_http_dir
-        virtualbox_config['http_directory'] = packer_http_dir
         packer_http_path = os.path.join(temp_dir.path, packer_http_dir)
+        virtualbox_config['http_directory'] = packer_http_path
         os.mkdir(packer_http_path)
 
         # generate the preseed text
@@ -134,12 +136,8 @@ class Builder(object):
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
         self._write_packer_config(packer_config, packer_config_file_name)
 
-        with open(packer_config_file_name, 'r') as file_object:
-            print(file_object.read())
-
-        preseed_file_name = os.path.join(os.path.join(temp_dir.path, self._config.virtualbox_packer_http_dir), PRESEED_FILE_NAME)
-        with open(preseed_file_name, 'r') as file_object:
-            print(file_object.read())
+        run_command('packer validate ' + packer_config_file_name)
+        run_command('packer build ' + packer_config_file_name)
 
     def _write_packer_config(self, packer_config, file_name):
         with open(file_name, 'w') as file_object:
