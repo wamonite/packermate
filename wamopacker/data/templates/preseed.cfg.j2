@@ -1,0 +1,71 @@
+# Locale
+d-i debian-installer/language string en
+d-i debian-installer/locale string en_GB.UTF-8
+d-i localechooser/preferred-locale string en_GB.UTF-8
+d-i localechooser/supported-locales en_GB.UTF-8
+
+# Keyboard
+d-i console-setup/ask_detect boolean false
+d-i keyboard-configuration/layout select GB
+d-i keyboard-configuration/variant select GB
+d-i keyboard-configuration/modelcode string pc105
+
+# Clock
+d-i time/zone string UTC
+d-i clock-setup/utc boolean true
+d-i clock-setup/utc-auto boolean true
+
+# Standard server selection
+tasksel tasksel/first multiselect standard
+d-i pkgsel/install-language-support boolean false
+
+# Manual updates only
+d-i pkgsel/update-policy select none
+
+# Confirm using LVM on whole disk
+d-i partman-auto/method string lvm
+d-i partman-auto-lvm/guided_size string max
+d-i partman-auto/choose_recipe select atomic
+
+# Old LVM and raid partitions removed
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-lvm/device_remove_md boolean true
+
+# Prompt for confirmation
+d-i partman/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+# No proxy
+d-i mirror/http/proxy string
+
+# User
+d-i passwd/root-login boolean false
+d-i passwd/user-fullname string {{ user_account }}
+d-i passwd/username string {{ user_account }}
+d-i passwd/user-password password {{ user_password }}
+d-i passwd/user-password-again password {{ user_password }}
+d-i user-setup/encrypt-home boolean false
+d-i user-setup/allow-password-weak boolean true
+
+# Individual additional packages to install
+d-i pkgsel/include string dkms ssh
+
+# Whether to upgrade packages after debootstrap.
+# Allowed values: none, safe-upgrade, full-upgrade
+d-i pkgsel/upgrade select none
+
+# Grub boot menu
+d-i grub-installer/only_debian boolean true
+
+# sudo from user doesn't require password
+d-i preseed/late_command string \
+    in-target apt-get update ; \
+    in-target apt-get -y dist-upgrade ; \
+    echo '{{ user_account }} ALL=(ALL) NOPASSWD: ALL' > /target/etc/sudoers.d/90-virtualbox-user ; \
+    chmod 440 /target/etc/sudoers.d/90-virtualbox-user
+
+# All done
+d-i finish-install/reboot_in_progress note

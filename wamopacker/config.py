@@ -10,7 +10,8 @@ CONFIG_DEFAULTS = {
     'virtualbox_iso_checksum_tyoe': 'md5',
     'virtualbox_user': 'ubuntu',
     'virtualbox_password': 'ubuntu',
-    'virtualbox_guest_os_type': 'Ubuntu_64'
+    'virtualbox_guest_os_type': 'Ubuntu_64',
+    'virtualbox_packer_http_dir': 'packer_http'
 }
 
 
@@ -43,10 +44,7 @@ class Config(object):
         self._config.update(config_file)
 
     def __getattr__(self, item):
-        if item not in self._config:
-            raise ConfigException("Config attribute not found: name=%s" % item)
-
-        return deepcopy(self._config[item])
+        return deepcopy(self._config[item]) if item in self._config else None
 
     def __contains__(self, item):
         return item in self._config

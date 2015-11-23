@@ -6,19 +6,23 @@ import os
 from tempfile import mkdtemp
 from shutil import rmtree
 from jinja2 import Environment, FileSystemLoader
-from json import load
+from json import load, dump
+
+PRESEED_FILE_NAME = 'preseed.cfg'
+PACKER_CONFIG_FILE_NAME = 'packer.json'
 
 
 class TempDir(object):
 
-    def __init__(self):
+    def __init__(self, dir = None):
         self.path = None
+        self._dir = dir
 
     def __enter__(self):
         if self.path:
             raise IOError('temp dir exists')
 
-        self.path = mkdtemp()
+        self.path = mkdtemp(dir = self._dir)
 
         return self
 
@@ -53,18 +57,15 @@ class Builder(object):
             "post-processors": []
         }
 
-        with TempDir() as temp_dir:
+        temp_dir_root = self._config.temp_dir
+        with TempDir(temp_dir_root) as temp_dir:
             if 'virtualbox' in self._target_list:
                 self._build_virtualbox(packer_config, temp_dir)
 
             if 'aws' in self._target_list:
                 self._build_aws(packer_config, temp_dir)
 
-            # template = self._template_env.get_template('preseed.j2')
-            # print(template.render(title = 'hello'))
-
-        from json import dumps
-        print(dumps(packer_config, indent = 4))
+            self._run_packer(packer_config, temp_dir)
 
     def _load_json(self, name):
         file_name = os.path.join(self._data_path, name + '.json')
@@ -72,34 +73,74 @@ class Builder(object):
             return load(file_object)
 
     def _build_virtualbox(self, packer_config, temp_dir):
-        if 'virtualbox_iso_url' in self._config and 'virtualbox_iso_checksum' in self._config:
-            packer_virtualbox_iso = self._load_json('packer_virtualbox_iso')
+        if self._config.virtualbox_iso_url and self._config.virtualbox_iso_checksum:
+            self._build_virtualbox_iso(packer_config, temp_dir)
 
-            for config_key, virtualbox_key in (
-                    ('vm_name', 'vm_name'),
-                    ('virtualbox_iso_url', 'iso_url'),
-                    ('virtualbox_iso_checksum', 'iso_checksum'),
-                    ('virtualbox_iso_checksum_tyoe', 'iso_checksum_type'),
-                    ('virtualbox_guest_os_type', 'guest_os_type'),
-                    ('virtualbox_disk_mb', 'disk_size'),
-                    ('virtualbox_user', 'ssh_username'),
-                    ('virtualbox_password', 'ssh_password'),
-                    ('virtualbox_output_directory', 'output_directory'),
-            ):
-                if config_key in self._config:
-                    packer_virtualbox_iso[virtualbox_key] = getattr(self._config, config_key)
+    def _build_virtualbox_iso(self, packer_config, temp_dir):
+        packer_virtualbox_iso = self._load_json('packer_virtualbox_iso')
 
-            vboxmanage_list = packer_virtualbox_iso.setdefault('vboxmanage', [])
-            for vboxmanage_attr, vboxmanage_cmd in (
-                    ('virtualbox_memory_mb', '--memory'),
-                    ('virtualbox_cpus', '--cpus'),
-            ):
-                if vboxmanage_attr in self._config:
-                    vboxmanage_list.append(['modifyvm', '{{ .Name }}', vboxmanage_cmd, getattr(self._config, vboxmanage_attr)])
+        for config_key, virtualbox_key in (
+                ('vm_name', 'vm_name'),
+                ('virtualbox_iso_url', 'iso_url'),
+                ('virtualbox_iso_checksum', 'iso_checksum'),
+                ('virtualbox_iso_checksum_tyoe', 'iso_checksum_type'),
+                ('virtualbox_guest_os_type', 'guest_os_type'),
+                ('virtualbox_disk_mb', 'disk_size'),
+                ('virtualbox_user', 'ssh_username'),
+                ('virtualbox_password', 'ssh_password'),
+                ('virtualbox_output_directory', 'output_directory'),
+        ):
+            if config_key in self._config:
+                packer_virtualbox_iso[virtualbox_key] = getattr(self._config, config_key)
 
-            packer_virtualbox_iso['shutdown_command'] = "echo '%s' | sudo -S shutdown -P now" % self._config.virtualbox_password
+        vboxmanage_list = packer_virtualbox_iso.setdefault('vboxmanage', [])
+        for vboxmanage_attr, vboxmanage_cmd in (
+                ('virtualbox_memory_mb', '--memory'),
+                ('virtualbox_cpus', '--cpus'),
+        ):
+            if vboxmanage_attr in self._config:
+                vboxmanage_list.append(['modifyvm', '{{ .Name }}', vboxmanage_cmd, getattr(self._config, vboxmanage_attr)])
 
-            packer_config['builders'].append(packer_virtualbox_iso)
+        packer_virtualbox_iso['shutdown_command'] = "echo '%s' | sudo -S shutdown -P now" % self._config.virtualbox_password
+
+        self._write_virtualbox_iso_preseed(packer_virtualbox_iso, temp_dir)
+
+        # add to the builder list
+        packer_config['builders'].append(packer_virtualbox_iso)
+
+    def _write_virtualbox_iso_preseed(self, virtualbox_config, temp_dir):
+        # create the packer_http directory
+        packer_http_dir = self._config.virtualbox_packer_http_dir
+        virtualbox_config['http_directory'] = packer_http_dir
+        packer_http_path = os.path.join(temp_dir.path, packer_http_dir)
+        os.mkdir(packer_http_path)
+
+        # generate the preseed text
+        preseed_template = self._template_env.get_template(PRESEED_FILE_NAME + '.j2')
+        preseed_text = preseed_template.render(
+            user_account = virtualbox_config['ssh_username'],
+            user_password = virtualbox_config['ssh_password']
+        )
+
+        # write the preseed
+        preseed_file_name = os.path.join(packer_http_path, PRESEED_FILE_NAME)
+        with open(preseed_file_name, 'w') as file_object:
+            file_object.write(preseed_text)
 
     def _build_aws(self, packer_config, temp_dir):
         pass
+
+    def _run_packer(self, packer_config, temp_dir):
+        packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
+        self._write_packer_config(packer_config, packer_config_file_name)
+
+        with open(packer_config_file_name, 'r') as file_object:
+            print(file_object.read())
+
+        preseed_file_name = os.path.join(os.path.join(temp_dir.path, self._config.virtualbox_packer_http_dir), PRESEED_FILE_NAME)
+        with open(preseed_file_name, 'r') as file_object:
+            print(file_object.read())
+
+    def _write_packer_config(self, packer_config, file_name):
+        with open(file_name, 'w') as file_object:
+            dump(packer_config, file_object, indent = 4)
