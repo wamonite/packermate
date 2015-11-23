@@ -67,6 +67,8 @@ class Builder(object):
             if 'aws' in self._target_list:
                 self._build_aws(packer_config, temp_dir)
 
+            self._add_vagrant_export(packer_config)
+
             self._run_packer(packer_config, temp_dir)
 
     def _load_json(self, name):
@@ -131,6 +133,20 @@ class Builder(object):
 
     def _build_aws(self, packer_config, temp_dir):
         pass
+
+    def _add_vagrant_export(self, packer_config):
+        if self._config.vagrant:
+            vagrant_config = {
+                'type': 'vagrant'
+            }
+
+            if self._config.vagrant_output:
+                vagrant_config['output'] = self._config.vagrant_output
+
+            if self._config.vagrant_keep_inputs:
+                vagrant_config['keep_input_artifact'] = True
+
+            packer_config['post-processors'].append(vagrant_config)
 
     def _run_packer(self, packer_config, temp_dir):
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
