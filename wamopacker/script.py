@@ -8,6 +8,7 @@ from .config import Config
 from .command import Builder
 from collections import OrderedDict
 
+
 COMMAND_LOOKUP = OrderedDict([
     ('virtualbox', ('build', 'virtualbox')),
     ('aws', ('build', 'aws')),
@@ -51,6 +52,7 @@ def run():
     except Exception as e:
         print('ERROR:', e.__class__.__name__, e, file = sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     run()
