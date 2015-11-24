@@ -36,6 +36,10 @@ class TempDir(object):
             self.path = None
 
 
+class BuilderException(Exception):
+    pass
+
+
 class Builder(object):
 
     def __init__(self, config, target_list):
@@ -68,6 +72,8 @@ class Builder(object):
 
             if 'aws' in self._target_list:
                 self._build_aws(packer_config, temp_dir)
+
+            self._add_provisioners(packer_config)
 
             self._add_vagrant_export(packer_config)
 
@@ -104,6 +110,7 @@ class Builder(object):
                 ('virtualbox_disk_mb', 'disk_size'),
                 ('virtualbox_user', 'ssh_username'),
                 ('virtualbox_password', 'ssh_password'),
+                ('virtualhox_shutdown_command', 'shutdown_command'),
                 ('virtualbox_output_directory', 'output_directory'),
         ):
             if config_key in self._config:
@@ -116,8 +123,6 @@ class Builder(object):
         ):
             if vboxmanage_attr in self._config:
                 vboxmanage_list.append(['modifyvm', '{{ .Name }}', vboxmanage_cmd, getattr(self._config, vboxmanage_attr)])
-
-        packer_virtualbox_iso['shutdown_command'] = "echo '%s' | sudo -S shutdown -P now" % self._config.virtualbox_password
 
         self._write_virtualbox_iso_preseed(packer_virtualbox_iso, temp_dir)
 
@@ -173,6 +178,66 @@ class Builder(object):
 
     def _build_aws(self, packer_config, temp_dir):
         pass
+
+    def _add_provisioners(self, packer_config):
+        if self._config.provisioning:
+            if not isinstance(self._config.provisioning, list):
+                raise BuilderException('Provisioning must be a list')
+
+            value_definition_lookup = {
+                'file': (
+                    ('source', basestring, True),
+                    ('destination', basestring, True),
+                    ('direction', basestring, False),
+                ),
+                'shell': (
+                    ('scripts', list, True),
+                    ('execute_command', basestring, False),
+                    ('environment_vars', list, False),
+                ),
+                'ansible-local': (
+                    ('playbook_file', basestring, True),
+                    ('playbook_dir', basestring, False),
+                    ('command', basestring, False),
+                    ('extra_arguments', list, False),
+                ),
+            }
+
+            provisioner_list = self._config.provisioning
+            for provisioner_lookup in provisioner_list:
+                provisioner_type = provisioner_lookup.get('type')
+                if provisioner_type in value_definition_lookup:
+                    provisioner_values = self._parse_provisioner(
+                        provisioner_type,
+                        provisioner_lookup,
+                        value_definition_lookup[provisioner_type]
+                    )
+
+                    packer_config['provisioners'].append(provisioner_values)
+
+                else:
+                    raise BuilderException("Unknown provision type: type='%s'" % provisioner_type)
+
+    @staticmethod
+    def _parse_provisioner(provisioner_type, provisioner_lookup, value_definition):
+        provisioner_values = {
+            'type': provisioner_type
+        }
+
+        for val_name, val_type, val_required in value_definition:
+            val = provisioner_lookup.get(val_name)
+            if not isinstance(val, val_type):
+                if val or val_required:
+                    raise BuilderException("Invalid shell provision value: name='%s' type='%s' type_expected='%s'" % (
+                        val_name,
+                        '' if val is None else val.__class__.__name__,
+                        val_type.__name__
+                    ))
+
+            if val:
+                provisioner_values[val_name] = val
+
+        return provisioner_values
 
     def _add_vagrant_export(self, packer_config):
         if self._config.vagrant:

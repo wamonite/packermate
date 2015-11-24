@@ -40,10 +40,13 @@ def stream_subprocess(command_list, quiet = False, working_dir = None, out_to_fi
         )
 
         for read_file in select_list[0]:
-            read_buffer = ''
+            read_buffer = None
             # non-blocking read
             for read_data in os.read(read_file.fileno(), RUN_COMMAND_READ_BYTES):
-                read_buffer += read_data
+                if read_buffer:
+                    read_buffer += read_data
+                else:
+                    read_buffer = read_data
 
             output_file = None
             if read_file == process.stdout:
@@ -54,7 +57,7 @@ def stream_subprocess(command_list, quiet = False, working_dir = None, out_to_fi
                 file_err.write(read_buffer)
                 output_file = None if quiet else sys.stderr
 
-            if do_print:
+            if do_print and read_buffer:
                 print(read_buffer, end = '', file = output_file)
 
         if process.poll() is not None:
