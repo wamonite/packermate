@@ -1,6 +1,8 @@
 ---
+vm_name: test
 virtualbox_iso_url: http://releases.ubuntu.com/trusty/ubuntu-14.04.3-server-amd64.iso
 virtualbox_iso_checksum: 9e5fecc94b3925bededed0fdca1bd417
-virtualbox_output_directory: build/virtualbox_iso
+virtualbox_output_directory: build/virtualbox
 vagrant: true
 vagrant_output: build/test_{{ .Provider }}.box
+vagrant_keep_inputs: true
