@@ -12,6 +12,8 @@ from .process import run_command
 
 PRESEED_FILE_NAME = 'preseed.cfg'
 PACKER_CONFIG_FILE_NAME = 'packer.json'
+EXTRACTED_OVF_FILE_NAME = 'box.ovf'
+REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 
 
 class TempDir(object):
@@ -80,6 +82,16 @@ class Builder(object):
         if self._config.virtualbox_iso_url and self._config.virtualbox_iso_checksum:
             self._build_virtualbox_iso(packer_config, temp_dir)
 
+        else:
+            if self._config.virtualbox_vagrant_box_name and self._config.virtualbox_vagrant_box_version:
+                self._build_virtualbox_vagrant_box(temp_dir)
+
+            if self._config.virtualbox_vagrant_box_file:
+                self._build_virtualbox_vagrant_box_file(temp_dir)
+
+            if self._config.virtualbox_ovf_file:
+                self._build_virtualbox_ovf_file(packer_config, temp_dir)
+
     def _build_virtualbox_iso(self, packer_config, temp_dir):
         packer_virtualbox_iso = self._load_json('packer_virtualbox_iso')
 
@@ -130,6 +142,34 @@ class Builder(object):
         preseed_file_name = os.path.join(packer_http_path, PRESEED_FILE_NAME)
         with open(preseed_file_name, 'w') as file_object:
             file_object.write(preseed_text)
+
+    def _build_virtualbox_ovf_file(self, packer_config, temp_dir):
+        packer_virtualbox_ovf = self._load_json('packer_virtualbox_ovf')
+
+        for config_key, virtualbox_key in (
+                ('vm_name', 'vm_name'),
+                ('virtualbox_user', 'ssh_username'),
+                ('virtualbox_password', 'ssh_password'),
+                ('virtualbox_ovf_file', 'source_path'),
+                ('virtualbox_output_directory', 'output_directory'),
+        ):
+            if config_key in self._config:
+                packer_virtualbox_ovf[virtualbox_key] = getattr(self._config, config_key)
+
+        # add to the builder list
+        packer_config['builders'].append(packer_virtualbox_ovf)
+
+    def _build_virtualbox_vagrant_box_file(self, temp_dir):
+        extract_command = "tar -xzvf '%s' -C '%s'" % (self._config.virtualbox_vagrant_box_file, temp_dir.path)
+        run_command(extract_command)
+
+        self._config.virtualbox_ovf_file = os.path.join(temp_dir.path, EXTRACTED_OVF_FILE_NAME)
+
+    def _build_virtualbox_vagrant_box(self, temp_dir):
+        extract_command = "vagrant box repackage '%s' virtualbox '%s'" % (self._config.virtualbox_vagrant_box_name, self._config.virtualbox_vagrant_box_version)
+        run_command(extract_command, working_dir = temp_dir.path)
+
+        self._config.virtualbox_vagrant_box_file = os.path.join(temp_dir.path, REPACKAGED_VAGRANT_BOX_FILE_NAME)
 
     def _build_aws(self, packer_config, temp_dir):
         pass

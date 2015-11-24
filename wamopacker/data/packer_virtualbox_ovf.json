@@ -1,0 +1,11 @@
+{
+  "type": "virtualbox-ovf",
+  "headless": true,
+  "vboxmanage": [
+    ["modifyvm", "{{ .Name }}", "--nictype1", "virtio"]
+  ],
+
+  "guest_additions_mode": "disable",
+
+  "shutdown_command": "sudo -S shutdown -P now"
+}

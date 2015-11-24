@@ -11,7 +11,8 @@ CONFIG_DEFAULTS = {
     'virtualbox_user': 'ubuntu',
     'virtualbox_password': 'ubuntu',
     'virtualbox_guest_os_type': 'Ubuntu_64',
-    'virtualbox_packer_http_dir': 'packer_http'
+    'virtualbox_packer_http_dir': 'packer_http',
+    'virtualbox_vagrant_box_version': '0'
 }
 
 
@@ -45,6 +46,13 @@ class Config(object):
 
     def __getattr__(self, item):
         return deepcopy(self._config[item]) if item in self._config else None
+
+    def __setattr__(self, item, value):
+        if item == '_config':
+            super(Config, self).__setattr__(item, value)
+
+        else:
+            self._config[item] = value
 
     def __contains__(self, item):
         return item in self._config
