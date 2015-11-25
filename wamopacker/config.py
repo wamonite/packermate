@@ -5,6 +5,7 @@ from __future__ import print_function, unicode_literals
 from yaml import safe_load
 from copy import deepcopy
 import re
+import os
 
 
 CONFIG_DEFAULTS = {
@@ -16,6 +17,7 @@ CONFIG_DEFAULTS = {
     'virtualbox_packer_http_dir': 'packer_http',
     'virtualbox_vagrant_box_version': '0'
 }
+ENV_VAR_PREFIX = 'WAMOPACKER_'
 
 
 def read_config_file(file_name):
@@ -41,10 +43,20 @@ class ConfigException(Exception):
 
 class Config(object):
 
-    def __init__(self, config_file_name):
+    def __init__(self, config_file_name, override_list = None):
         self._config = deepcopy(CONFIG_DEFAULTS)
+
         config_file = read_config_file(config_file_name)
         self._config.update(config_file)
+
+        if override_list:
+            override_lookup = self._parse_overrides(override_list)
+            self._config.update(override_lookup)
+
+        var_lookup = self._parse_env_vars()
+        if var_lookup:
+            self._config.update(var_lookup)
+
         self._re = re.compile('^(.*)\(\(([^\)]+)\)\)(.*)$')
 
     def __getattr__(self, item):
@@ -60,6 +72,29 @@ class Config(object):
 
     def __contains__(self, item):
         return item in self._config
+
+    @staticmethod
+    def _parse_overrides(override_list):
+        override_lookup = dict()
+        for override_text in override_list:
+            val_list = override_text.split('=')
+            if len(val_list) != 2:
+                raise ConfigException("Invalid parameter: value='%s'" % override_text)
+
+            override_lookup[val_list[0]] = val_list[1]
+
+        return override_lookup
+
+    @staticmethod
+    def _parse_env_vars():
+        var_lookup = dict()
+
+        for var_name in os.environ.keys():
+            if var_name.startswith(ENV_VAR_PREFIX):
+                var_key = var_name[len(ENV_VAR_PREFIX):]
+                var_lookup[var_key] = os.environ[var_name]
+
+        return var_lookup
 
     def _replace_values(self, value):
         if isinstance(value, basestring):
