@@ -18,15 +18,15 @@ REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 
 class TempDir(object):
 
-    def __init__(self, dir = None):
+    def __init__(self, path = None):
         self.path = None
-        self._dir = dir
+        self._path = path
 
     def __enter__(self):
         if self.path:
             raise IOError('temp dir exists')
 
-        self.path = mkdtemp(dir = self._dir)
+        self.path = mkdtemp(dir = self._path)
 
         return self
 
@@ -180,9 +180,9 @@ class Builder(object):
         pass
 
     def _add_provisioners(self, packer_config):
-        if self._config.provisioning:
-            if not isinstance(self._config.provisioning, list):
-                raise BuilderException('Provisioning must be a list')
+        if self._config.provisioners:
+            if not isinstance(self._config.provisioners, list):
+                raise BuilderException('Provisioners must be a list')
 
             value_definition_lookup = {
                 'file': (
@@ -203,7 +203,7 @@ class Builder(object):
                 ),
             }
 
-            provisioner_list = self._config.provisioning
+            provisioner_list = self._config.provisioners
             for provisioner_lookup in provisioner_list:
                 provisioner_type = provisioner_lookup.get('type')
                 if provisioner_type in value_definition_lookup:
@@ -224,11 +224,13 @@ class Builder(object):
             'type': provisioner_type
         }
 
+        provisioner_val_name_set = set(provisioner_lookup.keys())
+        provisioner_val_name_set.remove('type')
         for val_name, val_type, val_required in value_definition:
             val = provisioner_lookup.get(val_name)
             if not isinstance(val, val_type):
                 if val or val_required:
-                    raise BuilderException("Invalid shell provision value: name='%s' type='%s' type_expected='%s'" % (
+                    raise BuilderException("Invalid provision value: name='%s' type='%s' type_expected='%s'" % (
                         val_name,
                         '' if val is None else val.__class__.__name__,
                         val_type.__name__
@@ -236,6 +238,10 @@ class Builder(object):
 
             if val:
                 provisioner_values[val_name] = val
+                provisioner_val_name_set.remove(val_name)
+
+        if provisioner_val_name_set:
+            raise BuilderException("Invalid provision value: name='%s'" % ','.join(provisioner_val_name_set))
 
         return provisioner_values
 
