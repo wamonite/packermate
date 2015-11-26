@@ -61,7 +61,7 @@ class Config(object):
 
     def __getattr__(self, item):
         if item in self._config:
-            return self._replace_values(self._config[item])
+            return self._expand_parameters(self._config[item])
 
     def __setattr__(self, item, value):
         if item in ('_config', '_re'):
@@ -96,25 +96,27 @@ class Config(object):
 
         return var_lookup
 
-    def _replace_values(self, value):
+    def _expand_parameters(self, value):
         if isinstance(value, basestring):
-            return self._replace_value(value)
+            return self._expand_parameter(value)
 
         elif isinstance(value, list):
             out_list = []
             for item in value:
-                out_list.append(self._replace_values(item))
+                out_list.append(self._expand_parameters(item))
 
             return out_list
 
         elif isinstance(value, dict):
             out_dict = {}
             for key in value.iterkeys():
-                out_dict[key] = self._replace_values(value[key])
+                out_dict[key] = self._expand_parameters(value[key])
 
             return out_dict
 
-    def _replace_value(self, value):
+        return value
+
+    def _expand_parameter(self, value):
         while True:
             match = self._re.match(value)
             if match:
@@ -123,7 +125,7 @@ class Config(object):
                 if val_key in self._config:
                     value = val_before + self._config[val_key] + val_after
                 else:
-                    raise ConfigException("replacement parameter not found: name='%s'" % match.group(2))
+                    raise ConfigException("Parameter not found: name='%s'" % match.group(2))
 
             else:
                 break

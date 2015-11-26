@@ -70,7 +70,7 @@ def run():
             if callable(command_func):
                 command_func()
 
-    except (ConfigException, BuilderException, ProcessException) as e:
+    except (ConfigException, BuilderException, ProcessException, NotImplementedError) as e:
         print('ERROR:', e.__class__.__name__, e, file = sys.stderr)
         sys.exit(1)
 
