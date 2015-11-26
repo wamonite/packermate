@@ -177,7 +177,7 @@ class Builder(object):
         self._config.virtualbox_vagrant_box_file = os.path.join(temp_dir.path, REPACKAGED_VAGRANT_BOX_FILE_NAME)
 
     def _build_aws(self, packer_config, temp_dir):
-        pass
+        raise NotImplementedError('AWS not implemented')
 
     def _add_provisioners(self, packer_config):
         if self._config.provisioners:

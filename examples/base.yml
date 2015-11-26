@@ -1,0 +1,17 @@
+---
+vm_name: base
+virtualbox_iso_url: http://releases.ubuntu.com/trusty/ubuntu-14.04.3-server-amd64.iso
+virtualbox_iso_checksum: 9e5fecc94b3925bededed0fdca1bd417
+virtualbox_output_directory: base/virtualbox
+provisioners:
+  - type: shell
+    scripts:
+      - scripts/apt-get_upgrade.sh
+      - scripts/virtualbox_guest_additions.sh
+      - scripts/passwordless_sudo.sh
+    environment_vars:
+      - SETUP_USER_ACCOUNT=(( virtualbox_user ))
+    execute_command: sudo -H -S {{ .Vars }} bash '{{ .Path }}'
+vagrant: true
+vagrant_output: base/(( vm_name ))_{{ .Provider }}.box
+vagrant_keep_inputs: true
