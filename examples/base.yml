@@ -8,10 +8,24 @@ provisioners:
     scripts:
       - scripts/apt-get_upgrade.sh
       - scripts/virtualbox_guest_additions.sh
+      - scripts/remove_udev_persistent_net_rules.sh
+    execute_command: "sudo -H -S {{ .Vars }} bash '{{ .Path }}'"
+  - type: shell
+    scripts:
       - scripts/passwordless_sudo.sh
+      - scripts/lock_password.sh
     environment_vars:
       - SETUP_USER_ACCOUNT=(( virtualbox_user ))
-    execute_command: sudo -H -S {{ .Vars }} bash '{{ .Path }}'
+    execute_command: "sudo -H -S {{ .Vars }} bash '{{ .Path }}'"
+  - type: file
+    source: /Users/warren/.ssh/vagrant_id_rsa.pub
+    destination: /tmp/id_rsa.pub
+  - type: shell
+    scripts:
+      - scripts/set_ssh_authorized_key.sh
+    environment_vars:
+      - SSH_PUBLIC_KEY_FILES=/tmp/id_rsa.pub
+    execute_command: "{{ .Vars }} bash '{{ .Path }}'"
 vagrant: true
 vagrant_output: base/(( vm_name ))_{{ .Provider }}.box
 vagrant_keep_inputs: true
