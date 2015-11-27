@@ -1,11 +1,16 @@
 ---
 vm_name: base
+ssh_key_name: id_rsa
 virtualbox_user: ubuntu
 virtualbox_password: ubuntu
 virtualbox_iso_url: http://releases.ubuntu.com/trusty/ubuntu-14.04.3-server-amd64.iso
 virtualbox_iso_checksum: 9e5fecc94b3925bededed0fdca1bd417
 virtualbox_output_directory: base/virtualbox
-ssh_key_name: id_rsa
+virtualbox_ovf_output: (( vm_name ))
+aws_user: ubuntu
+aws_region: eu-west-1
+aws_ami_id: ami-8d16ccfe
+aws_instance_type: t2.micro
 provisioners:
   - type: shell
     scripts:

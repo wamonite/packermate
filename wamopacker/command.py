@@ -8,6 +8,7 @@ from shutil import rmtree
 from jinja2 import Environment, FileSystemLoader
 from json import load, dump
 from .process import run_command
+import re
 
 
 PRESEED_FILE_NAME = 'preseed.cfg'
@@ -18,15 +19,15 @@ REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 
 class TempDir(object):
 
-    def __init__(self, path = None):
+    def __init__(self, root_dir = None):
         self.path = None
-        self._path = path
+        self._root_dir = root_dir
 
     def __enter__(self):
         if self.path:
             raise IOError('temp dir exists')
 
-        self.path = mkdtemp(dir = self._path)
+        self.path = mkdtemp(dir = self._root_dir)
 
         return self
 
@@ -102,7 +103,7 @@ class Builder(object):
         packer_virtualbox_iso = self._load_json('packer_virtualbox_iso')
 
         for config_key, virtualbox_key in (
-                ('vm_name', 'vm_name'),
+                ('virtualbox_ovf_output', 'vm_name'),
                 ('virtualbox_iso_url', 'iso_url'),
                 ('virtualbox_iso_checksum', 'iso_checksum'),
                 ('virtualbox_iso_checksum_tyoe', 'iso_checksum_type'),
@@ -152,17 +153,16 @@ class Builder(object):
         packer_virtualbox_ovf = self._load_json('packer_virtualbox_ovf')
 
         for config_key, virtualbox_key in (
-                ('vm_name', 'vm_name'),
+                ('virtualbox_ovf_output', 'vm_name'),
                 ('virtualbox_user', 'ssh_username'),
                 ('virtualbox_password', 'ssh_password'),
                 ('virtualbox_private_key_file', 'ssh_key_path'),  # https://github.com/mitchellh/packer/issues/2428
-                ('virtualbox_ovf_file', 'source_path'),
+                ('virtualbox_ovf_input_file', 'source_path'),
                 ('virtualbox_output_directory', 'output_directory'),
         ):
             if config_key in self._config:
                 packer_virtualbox_ovf[virtualbox_key] = getattr(self._config, config_key)
 
-        # add to the builder list
         packer_config['builders'].append(packer_virtualbox_ovf)
 
     def _build_virtualbox_vagrant_box_file(self, temp_dir):
@@ -178,7 +178,62 @@ class Builder(object):
         self._config.virtualbox_vagrant_box_file = os.path.join(temp_dir.path, REPACKAGED_VAGRANT_BOX_FILE_NAME)
 
     def _build_aws(self, packer_config, temp_dir):
-        raise NotImplementedError('AWS not implemented')
+        if self._config.aws_vagrant_box_name and self._config.aws_vagrant_box_version:
+            self._build_aws_vagrant_box(temp_dir)
+
+        if self._config.aws_vagrant_box_file:
+            self._build_aws_vagrant_box_file(packer_config, temp_dir)
+
+        if self._config.aws_ami_id:
+            self._build_aws_ami_id(packer_config)
+
+    def _build_aws_ami_id(self, packer_config):
+        packer_amazon_ebs = {
+            'type': 'amazon-ebs'
+        }
+
+        for config_key, aws_key in (
+                ('aws_access_key', 'access_key'),
+                ('aws_secret_key', 'secret_key'),
+                ('aws_ami_id', 'source_ami'),
+                ('aws_region', 'region'),
+                ('aws_ami_name', 'ami_name'),
+                ('aws_instance_type', 'instance_type'),
+                ('aws_user', 'ssh_username'),
+                ('aws_keypair_name', 'ssh_keypair_name'),
+                ('aws_private_key_file', 'ssh_private_key_file'),
+                ('aws_disk_gb', 'volume_size'),
+                ('aws_disk_type', 'volume_type'),
+        ):
+            if config_key in self._config:
+                packer_amazon_ebs[aws_key] = getattr(self._config, config_key)
+
+        packer_config['builders'].append(packer_amazon_ebs)
+
+    def _build_aws_vagrant_box_file(self, packer_config, temp_dir):
+        extract_command = 'tar -xzvf ' + self._config.aws_vagrant_box_file + ' -C ' + temp_dir.path + ' Vagrantfile'
+        run_command(extract_command)
+
+        vagrant_file_name = os.path.join(temp_dir.path, 'Vagrantfile')
+        found_ami_id = None
+        with open(vagrant_file_name, 'r') as file_object:
+            for line in file_object:
+                match = re.search('ami:\s*\"([^\"]+)\"', line)
+                if match:
+                    found_ami_id = match.group(1)
+
+                    break
+
+        if not found_ami_id:
+            raise BuilderException('Unable to extract AWS AMI id form Vagrant box file')
+
+        self._config.aws_ami_id = found_ami_id
+
+    def _build_aws_vagrant_box(self, temp_dir):
+        extract_command = "vagrant box repackage '%s' aws '%s'" % (self._config.aws_vagrant_box_name, self._config.aws_vagrant_box_version)
+        run_command(extract_command, working_dir = temp_dir.path)
+
+        self._config.aws_vagrant_box_file = os.path.join(temp_dir.path, REPACKAGED_VAGRANT_BOX_FILE_NAME)
 
     def _add_provisioners(self, packer_config):
         if self._config.provisioners:
