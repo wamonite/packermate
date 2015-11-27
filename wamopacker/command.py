@@ -155,6 +155,7 @@ class Builder(object):
                 ('vm_name', 'vm_name'),
                 ('virtualbox_user', 'ssh_username'),
                 ('virtualbox_password', 'ssh_password'),
+                ('virtualbox_private_key_file', 'ssh_key_path'),  # https://github.com/mitchellh/packer/issues/2428
                 ('virtualbox_ovf_file', 'source_path'),
                 ('virtualbox_output_directory', 'output_directory'),
         ):

@@ -10,8 +10,6 @@ import os
 
 CONFIG_DEFAULTS = {
     'virtualbox_iso_checksum_tyoe': 'md5',
-    'virtualbox_user': 'ubuntu',
-    'virtualbox_password': 'ubuntu',
     'virtualhox_shutdown_command': "echo '(( virtualbox_password ))' | sudo -S shutdown -P now",
     'virtualbox_guest_os_type': 'Ubuntu_64',
     'virtualbox_packer_http_dir': 'packer_http',

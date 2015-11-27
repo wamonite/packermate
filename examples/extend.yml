@@ -1,0 +1,15 @@
+---
+vm_name: extend
+virtualbox_user: ubuntu
+virtualbox_private_key_file: (( env|HOME ))/.ssh/(( ssh_key_name ))
+virtualbox_ovf_file: base/virtualbox/base.ovf
+virtualbox_output_directory: extend/virtualbox
+ssh_key_name: id_rsa
+provisioners:
+  - type: shell
+    scripts:
+      - scripts/apt-get_upgrade.sh
+    execute_command: (( shell_command_sudo ))
+vagrant: true
+vagrant_output: extend/(( vm_name ))_{{ .Provider }}.box
+vagrant_keep_inputs: true
