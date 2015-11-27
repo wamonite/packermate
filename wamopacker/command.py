@@ -186,17 +186,17 @@ class Builder(object):
 
             value_definition_lookup = {
                 'file': (
-                    ('source', basestring, True),
-                    ('destination', basestring, True),
+                    ('source', basestring),
+                    ('destination', basestring),
                     ('direction', basestring, False),
                 ),
                 'shell': (
-                    ('scripts', list, True),
-                    ('execute_command', basestring, False),
+                    ('scripts', list),
+                    ('execute_command', basestring, False, '(( shell_command ))'),
                     ('environment_vars', list, False),
                 ),
                 'ansible-local': (
-                    ('playbook_file', basestring, True),
+                    ('playbook_file', basestring),
                     ('playbook_dir', basestring, False),
                     ('command', basestring, False),
                     ('extra_arguments', list, False),
@@ -218,16 +218,20 @@ class Builder(object):
                 else:
                     raise BuilderException("Unknown provision type: type='%s'" % provisioner_type)
 
-    @staticmethod
-    def _parse_provisioner(provisioner_type, provisioner_lookup, value_definition):
+    def _parse_provisioner(self, provisioner_type, provisioner_lookup, value_definition):
         provisioner_values = {
             'type': provisioner_type
         }
 
         provisioner_val_name_set = set(provisioner_lookup.keys())
         provisioner_val_name_set.remove('type')
-        for val_name, val_type, val_required in value_definition:
-            val = provisioner_lookup.get(val_name)
+        for val_items in value_definition:
+            val_name = val_items[0]
+            val_type = val_items[1]
+            val_required = val_items[2] if len(val_items) > 2 else True
+            val_default = self._config.expand_parameters(val_items[3]) if len(val_items) > 3 else None
+
+            val = provisioner_lookup.get(val_name, val_default)
             if not isinstance(val, val_type):
                 if val or val_required:
                     raise BuilderException("Invalid provision value: name='%s' type='%s' type_expected='%s'" % (
@@ -238,7 +242,7 @@ class Builder(object):
 
             if val:
                 provisioner_values[val_name] = val
-                provisioner_val_name_set.remove(val_name)
+                provisioner_val_name_set.discard(val_name)
 
         if provisioner_val_name_set:
             raise BuilderException("Invalid provision value: name='%s'" % ','.join(provisioner_val_name_set))

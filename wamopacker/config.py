@@ -15,26 +15,11 @@ CONFIG_DEFAULTS = {
     'virtualhox_shutdown_command': "echo '(( virtualbox_password ))' | sudo -S shutdown -P now",
     'virtualbox_guest_os_type': 'Ubuntu_64',
     'virtualbox_packer_http_dir': 'packer_http',
-    'virtualbox_vagrant_box_version': '0'
+    'virtualbox_vagrant_box_version': '0',
+    'shell_command': "{{ .Vars }} bash '{{ .Path }}'",
+    'shell_command_sudo': "sudo -H -S {{ .Vars }} bash '{{ .Path }}'",
 }
 ENV_VAR_PREFIX = 'WAMOPACKER_'
-
-
-def read_config_file(file_name):
-    try:
-        with open(file_name) as file_object:
-            config = safe_load(file_object)
-
-    except IOError:
-        raise ConfigException("Unable to load config: file_name='%s'" % file_name)
-
-    if not config:
-        return {}
-
-    if not isinstance(config, dict):
-        raise ConfigException("Config file should contain a valid YAML dictionary: file_name='%s'" % file_name)
-
-    return config
 
 
 class ConfigException(Exception):
@@ -46,10 +31,10 @@ class Config(object):
     def __init__(self, config_file_name, override_list = None):
         self._config = deepcopy(CONFIG_DEFAULTS)
 
-        config_file = read_config_file(config_file_name)
+        config_file = self._read_config_file(config_file_name)
         self._config.update(config_file)
 
-        if override_list:
+        if isinstance(override_list, list):
             override_lookup = self._parse_overrides(override_list)
             self._config.update(override_lookup)
 
@@ -57,11 +42,11 @@ class Config(object):
         if var_lookup:
             self._config.update(var_lookup)
 
-        self._re = re.compile('^(.*)\(\(([^\)]+)\)\)(.*)$')
+        self._re = re.compile('^(.*)\(\(\s*([^\)\s]+)\s*\)\)(.*)$')
 
     def __getattr__(self, item):
         if item in self._config:
-            return self._expand_parameters(self._config[item])
+            return self.expand_parameters(self._config[item])
 
     def __setattr__(self, item, value):
         if item in ('_config', '_re'):
@@ -72,6 +57,23 @@ class Config(object):
 
     def __contains__(self, item):
         return item in self._config
+
+    @staticmethod
+    def _read_config_file(file_name):
+        try:
+            with open(file_name) as file_object:
+                config = safe_load(file_object)
+
+        except IOError:
+            raise ConfigException("Unable to load config: file_name='%s'" % file_name)
+
+        if not config:
+            return {}
+
+        if not isinstance(config, dict):
+            raise ConfigException("Config file should contain a valid YAML dictionary: file_name='%s'" % file_name)
+
+        return config
 
     @staticmethod
     def _parse_overrides(override_list):
@@ -96,21 +98,21 @@ class Config(object):
 
         return var_lookup
 
-    def _expand_parameters(self, value):
+    def expand_parameters(self, value):
         if isinstance(value, basestring):
             return self._expand_parameter(value)
 
         elif isinstance(value, list):
             out_list = []
             for item in value:
-                out_list.append(self._expand_parameters(item))
+                out_list.append(self.expand_parameters(item))
 
             return out_list
 
         elif isinstance(value, dict):
             out_dict = {}
             for key in value.iterkeys():
-                out_dict[key] = self._expand_parameters(value[key])
+                out_dict[key] = self.expand_parameters(value[key])
 
             return out_dict
 
@@ -121,11 +123,31 @@ class Config(object):
             match = self._re.match(value)
             if match:
                 val_before, val_key, val_after = match.groups()
-                val_key = val_key.strip()
-                if val_key in self._config:
-                    value = val_before + self._config[val_key] + val_after
+
+                val_key_list = val_key.split('|')
+                if len(val_key_list) == 2:
+                    # special parameter prefix
+                    val_key_type, val_key_name = val_key_list
+                    if val_key_type == 'env':
+                        # environment variable
+                        if val_key_name in os.environ:
+                            val_new = os.environ[val_key_name]
+
+                        else:
+                            raise ConfigException("Environment variable not found: name='%s'" % val_key_name)
+
+                    else:
+                        raise ConfigException("Unknown parameter prefix: type='%s'" % val_key_type)
+
                 else:
-                    raise ConfigException("Parameter not found: name='%s'" % match.group(2))
+                    # existing parameter
+                    if val_key in self._config:
+                        val_new = self._config[val_key]
+
+                    else:
+                        raise ConfigException("Parameter not found: name='%s'" % match.group(2))
+
+                value = val_before + val_new + val_after
 
             else:
                 break
