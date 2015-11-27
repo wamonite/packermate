@@ -1,10 +1,18 @@
 ---
 vm_name: extend
+ssh_key_name: id_rsa
 virtualbox_user: ubuntu
 virtualbox_private_key_file: (( env|HOME ))/.ssh/(( ssh_key_name ))
-virtualbox_ovf_file: base/virtualbox/base.ovf
+virtualbox_ovf_input_file: base/virtualbox/base.ovf
 virtualbox_output_directory: extend/virtualbox
-ssh_key_name: id_rsa
+virtualbox_ovf_output: (( vm_name ))
+aws_vagrant_box_name: base
+aws_user: ubuntu
+# packer will not build for AWS without specifying a keypair name
+aws_keypair_name: dummy
+aws_private_key_file: (( env|HOME ))/.ssh/(( ssh_key_name ))
+aws_region: eu-west-1
+aws_instance_type: t2.micro
 provisioners:
   - type: shell
     scripts:
