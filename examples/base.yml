@@ -3,29 +3,29 @@ vm_name: base
 virtualbox_iso_url: http://releases.ubuntu.com/trusty/ubuntu-14.04.3-server-amd64.iso
 virtualbox_iso_checksum: 9e5fecc94b3925bededed0fdca1bd417
 virtualbox_output_directory: base/virtualbox
+ssh_key_name: id_rsa
 provisioners:
   - type: shell
     scripts:
       - scripts/apt-get_upgrade.sh
       - scripts/virtualbox_guest_additions.sh
       - scripts/remove_udev_persistent_net_rules.sh
-    execute_command: "sudo -H -S {{ .Vars }} bash '{{ .Path }}'"
+    execute_command: (( shell_command_sudo ))
   - type: shell
     scripts:
       - scripts/passwordless_sudo.sh
       - scripts/lock_password.sh
     environment_vars:
       - SETUP_USER_ACCOUNT=(( virtualbox_user ))
-    execute_command: "sudo -H -S {{ .Vars }} bash '{{ .Path }}'"
+    execute_command: (( shell_command_sudo ))
   - type: file
-    source: /Users/warren/.ssh/vagrant_id_rsa.pub
-    destination: /tmp/id_rsa.pub
+    source: (( env|HOME ))/.ssh/(( ssh_key_name )).pub
+    destination: /tmp/(( ssh_key_name )).pub
   - type: shell
     scripts:
       - scripts/set_ssh_authorized_key.sh
     environment_vars:
-      - SSH_PUBLIC_KEY_FILES=/tmp/id_rsa.pub
-    execute_command: "{{ .Vars }} bash '{{ .Path }}'"
+      - SSH_PUBLIC_KEY_FILES=/tmp/(( ssh_key_name )).pub
 vagrant: true
 vagrant_output: base/(( vm_name ))_{{ .Provider }}.box
 vagrant_keep_inputs: true
