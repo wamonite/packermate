@@ -10,7 +10,7 @@ import os
 
 CONFIG_DEFAULTS = {
     'virtualbox_iso_checksum_tyoe': 'md5',
-    'virtualhox_shutdown_command': "echo '(( virtualbox_password ))' | sudo -S shutdown -P now",
+    'virtualbox_shutdown_command': "echo '(( virtualbox_password ))' | sudo -S shutdown -P now",
     'virtualbox_guest_os_type': 'Ubuntu_64',
     'virtualbox_packer_http_dir': 'packer_http',
     'virtualbox_vagrant_box_version': '0',
@@ -147,7 +147,7 @@ class Config(object):
                     else:
                         raise ConfigException("Parameter not found: name='%s'" % match.group(2))
 
-                value = val_before + val_new + val_after
+                value = '{}{}{}'.format(val_before, val_new, val_after)
 
             else:
                 break
