@@ -74,7 +74,7 @@ def stream_subprocess(command_list, quiet = False, working_dir = None, out_to_fi
 
 def run_command(command, quiet = False, working_dir = None, out_to_file = None):
     if not quiet:
-        print('RUN: %s%s' % (command, ' > %s' % out_to_file if out_to_file else ''))
+        print('RUN: {}{}'.format(command, ' > {}'.format(out_to_file) if out_to_file else ''))
 
     command_list = shlex.split(command)
     output_std, output_err, exit_code = stream_subprocess(
@@ -85,7 +85,7 @@ def run_command(command, quiet = False, working_dir = None, out_to_file = None):
     )
 
     if exit_code != 0:
-        ex_message = 'Error running command (%s) exit code (%s)' % (command, exit_code)
+        ex_message = 'Error running command ({}) exit code ({})'.format(command, exit_code)
         ex = ProcessException(ex_message)
         ex.output_std = output_std
         ex.output_err = output_err

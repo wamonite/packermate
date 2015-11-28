@@ -65,13 +65,13 @@ class Config(object):
                 config = safe_load(file_object)
 
         except IOError:
-            raise ConfigException("Unable to load config: file_name='%s'" % file_name)
+            raise ConfigException("Unable to load config: file_name='{}'".format(file_name))
 
         if not config:
             return {}
 
         if not isinstance(config, dict):
-            raise ConfigException("Config file should contain a valid YAML dictionary: file_name='%s'" % file_name)
+            raise ConfigException("Config file should contain a valid YAML dictionary: file_name='{}'".format(file_name))
 
         return config
 
@@ -81,7 +81,7 @@ class Config(object):
         for override_text in override_list:
             val_list = override_text.split('=')
             if len(val_list) != 2:
-                raise ConfigException("Invalid parameter: value='%s'" % override_text)
+                raise ConfigException("Invalid parameter: value='{}'".format(override_text))
 
             override_lookup[val_list[0]] = val_list[1]
 
@@ -134,10 +134,10 @@ class Config(object):
                             val_new = os.environ[val_key_name]
 
                         else:
-                            raise ConfigException("Environment variable not found: name='%s'" % val_key_name)
+                            raise ConfigException("Environment variable not found: name='{}'".format(val_key_name))
 
                     else:
-                        raise ConfigException("Unknown parameter prefix: type='%s'" % val_key_type)
+                        raise ConfigException("Unknown parameter prefix: type='{}'".format(val_key_type))
 
                 else:
                     # existing parameter
@@ -145,7 +145,7 @@ class Config(object):
                         val_new = self._config[val_key]
 
                     else:
-                        raise ConfigException("Parameter not found: name='%s'" % match.group(2))
+                        raise ConfigException("Parameter not found: name='{}'".format(match.group(2)))
 
                 value = '{}{}{}'.format(val_before, val_new, val_after)
 
