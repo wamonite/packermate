@@ -53,7 +53,7 @@ def run():
                 command_func()
 
     except (ConfigException, BuilderException, ProcessException, NotImplementedError) as e:
-        print('ERROR:%s: %s' % (e.__class__.__name__, e), file = sys.stderr)
+        print('ERROR:{}: {}'.format(e.__class__.__name__, e), file = sys.stderr)
         sys.exit(1)
 
     except KeyboardInterrupt:

@@ -166,13 +166,16 @@ class Builder(object):
         packer_config['builders'].append(packer_virtualbox_ovf)
 
     def _build_virtualbox_vagrant_box_file(self, temp_dir):
-        extract_command = "tar -xzvf '%s' -C '%s'" % (self._config.virtualbox_vagrant_box_file, temp_dir.path)
+        extract_command = "tar -xzvf '{}' -C '{}'".format(self._config.virtualbox_vagrant_box_file, temp_dir.path)
         run_command(extract_command)
 
         self._config.virtualbox_ovf_file = os.path.join(temp_dir.path, EXTRACTED_OVF_FILE_NAME)
 
     def _build_virtualbox_vagrant_box(self, temp_dir):
-        extract_command = "vagrant box repackage '%s' virtualbox '%s'" % (self._config.virtualbox_vagrant_box_name, self._config.virtualbox_vagrant_box_version)
+        extract_command = "vagrant box repackage '{}' virtualbox '{}'".format(
+            self._config.virtualbox_vagrant_box_name,
+            self._config.virtualbox_vagrant_box_version
+        )
         run_command(extract_command, working_dir = temp_dir.path)
 
         self._config.virtualbox_vagrant_box_file = os.path.join(temp_dir.path, REPACKAGED_VAGRANT_BOX_FILE_NAME)
@@ -230,7 +233,10 @@ class Builder(object):
         self._config.aws_ami_id = found_ami_id
 
     def _build_aws_vagrant_box(self, temp_dir):
-        extract_command = "vagrant box repackage '%s' aws '%s'" % (self._config.aws_vagrant_box_name, self._config.aws_vagrant_box_version)
+        extract_command = "vagrant box repackage '{}' aws '{}'".format(
+            self._config.aws_vagrant_box_name,
+            self._config.aws_vagrant_box_version
+        )
         run_command(extract_command, working_dir = temp_dir.path)
 
         self._config.aws_vagrant_box_file = os.path.join(temp_dir.path, REPACKAGED_VAGRANT_BOX_FILE_NAME)
@@ -272,7 +278,7 @@ class Builder(object):
                     packer_config['provisioners'].append(provisioner_values)
 
                 else:
-                    raise BuilderException("Unknown provision type: type='%s'" % provisioner_type)
+                    raise BuilderException("Unknown provision type: type='{}'".format(provisioner_type))
 
     def _parse_provisioner(self, provisioner_type, provisioner_lookup, value_definition):
         provisioner_values = {
@@ -290,7 +296,7 @@ class Builder(object):
             val = provisioner_lookup.get(val_name, val_default)
             if not isinstance(val, val_type):
                 if val or val_required:
-                    raise BuilderException("Invalid provision value: name='%s' type='%s' type_expected='%s'" % (
+                    raise BuilderException("Invalid provision value: name='{}' type='{}' type_expected='{}'".format(
                         val_name,
                         '' if val is None else val.__class__.__name__,
                         val_type.__name__
@@ -301,7 +307,7 @@ class Builder(object):
                 provisioner_val_name_set.discard(val_name)
 
         if provisioner_val_name_set:
-            raise BuilderException("Invalid provision value: name='%s'" % ','.join(provisioner_val_name_set))
+            raise BuilderException("Invalid provision value: name='{}'".format(','.join(provisioner_val_name_set)))
 
         return provisioner_values
 
