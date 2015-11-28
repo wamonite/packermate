@@ -1,6 +1,7 @@
 ---
 vm_name: extend
-ssh_key_name: id_rsa
+include:
+  - ssh_key_name.yml
 virtualbox_user: ubuntu
 virtualbox_private_key_file: (( env|HOME ))/.ssh/(( ssh_key_name ))
 virtualbox_ovf_input_file: base/virtualbox/base.ovf
