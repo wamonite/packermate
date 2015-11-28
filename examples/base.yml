@@ -1,6 +1,7 @@
 ---
 vm_name: base
-ssh_key_name: id_rsa
+include:
+  - ssh_key_name.yml
 virtualbox_user: ubuntu
 virtualbox_password: ubuntu
 virtualbox_iso_url: http://releases.ubuntu.com/trusty/ubuntu-14.04.3-server-amd64.iso

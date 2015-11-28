@@ -58,8 +58,7 @@ class Config(object):
     def __contains__(self, item):
         return item in self._config
 
-    @staticmethod
-    def _read_config_file(file_name):
+    def _read_config_file(self, file_name):
         try:
             with open(file_name) as file_object:
                 config = safe_load(file_object)
@@ -72,6 +71,17 @@ class Config(object):
 
         if not isinstance(config, dict):
             raise ConfigException("Config file should contain a valid YAML dictionary: file_name='{}'".format(file_name))
+
+        if 'include' in config:
+            if not isinstance(config['include'], list):
+                raise ConfigException("Config file includes should contain a valid YAML list: file_name='{}'".format(file_name))
+
+            for include_file_name in config['include']:
+                config_include = self._read_config_file(include_file_name)
+
+                config.update(config_include)
+
+            del(config['include'])
 
         return config
 
@@ -129,12 +139,10 @@ class Config(object):
                     # special parameter prefix
                     val_key_type, val_key_name = val_key_list
                     if val_key_type == 'env':
-                        # environment variable
-                        if val_key_name in os.environ:
-                            val_new = os.environ[val_key_name]
+                        val_new = self._get_env_var(val_key_name)
 
-                        else:
-                            raise ConfigException("Environment variable not found: name='{}'".format(val_key_name))
+                    elif val_key_type == 'file':
+                        val_new = self._get_file_content(val_key_name)
 
                     else:
                         raise ConfigException("Unknown parameter prefix: type='{}'".format(val_key_type))
@@ -153,3 +161,20 @@ class Config(object):
                 break
 
         return value
+
+    @staticmethod
+    def _get_env_var(var_name):
+        # environment variable
+        if var_name in os.environ:
+            return os.environ[var_name]
+
+        raise ConfigException("Environment variable not found: name='{}'".format(var_name))
+
+    @staticmethod
+    def _get_file_content(file_name):
+        try:
+            with open(file_name, 'r') as file_object:
+                return file_object.read()
+
+        except IOError:
+            raise ConfigException("Error reading file: name='{}'".format(file_name))
