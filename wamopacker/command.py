@@ -81,7 +81,7 @@ class Builder(object):
             self._run_packer(packer_config, temp_dir)
 
     def _load_json(self, name):
-        file_name = os.path.join(self._data_path, name + '.json')
+        file_name = os.path.join(self._data_path, '{}.json'.format(name))
         with open(file_name, 'r') as file_object:
             return load(file_object)
 
@@ -111,7 +111,7 @@ class Builder(object):
                 ('virtualbox_disk_mb', 'disk_size'),
                 ('virtualbox_user', 'ssh_username'),
                 ('virtualbox_password', 'ssh_password'),
-                ('virtualhox_shutdown_command', 'shutdown_command'),
+                ('virtualbox_shutdown_command', 'shutdown_command'),
                 ('virtualbox_output_directory', 'output_directory'),
         ):
             if config_key in self._config:
@@ -138,7 +138,7 @@ class Builder(object):
         os.mkdir(packer_http_path)
 
         # generate the preseed text
-        preseed_template = self._template_env.get_template(PRESEED_FILE_NAME + '.j2')
+        preseed_template = self._template_env.get_template('{}.j2'.format(PRESEED_FILE_NAME))
         preseed_text = preseed_template.render(
             user_account = virtualbox_config['ssh_username'],
             user_password = virtualbox_config['ssh_password']
@@ -211,7 +211,7 @@ class Builder(object):
         packer_config['builders'].append(packer_amazon_ebs)
 
     def _build_aws_vagrant_box_file(self, packer_config, temp_dir):
-        extract_command = 'tar -xzvf ' + self._config.aws_vagrant_box_file + ' -C ' + temp_dir.path + ' Vagrantfile'
+        extract_command = 'tar -xzvf {} -C {} Vagrantfile'.format(self._config.aws_vagrant_box_file, temp_dir.path)
         run_command(extract_command)
 
         vagrant_file_name = os.path.join(temp_dir.path, 'Vagrantfile')
@@ -225,7 +225,7 @@ class Builder(object):
                     break
 
         if not found_ami_id:
-            raise BuilderException('Unable to extract AWS AMI id form Vagrant box file')
+            raise BuilderException('Unable to extract AWS AMI id from Vagrant box file')
 
         self._config.aws_ami_id = found_ami_id
 
@@ -323,8 +323,8 @@ class Builder(object):
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
         self._write_packer_config(packer_config, packer_config_file_name)
 
-        run_command('packer validate ' + packer_config_file_name)
-        run_command('packer build ' + packer_config_file_name)
+        run_command('packer validate {}'.format(packer_config_file_name))
+        run_command('packer build {}'.format(packer_config_file_name))
 
     def _write_packer_config(self, packer_config, file_name):
         with open(file_name, 'w') as file_object:
