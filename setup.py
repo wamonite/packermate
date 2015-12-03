@@ -5,8 +5,8 @@ with open('README.rst', 'r') as f:
 
 setup(
     name = 'wamopacker',
-    version = '0.0.1',
-    description = 'Generate and run Packer_ build configurations from a simple YAML definition.',
+    version = '0.0.0',
+    description = 'Generate and run Packer build configurations from a simple YAML definition',
     long_description = readme,
     license = 'MIT',
     author = 'Warren Moore',
@@ -26,8 +26,13 @@ setup(
     packages = ['wamopacker'],
     entry_points = dict(console_scripts = ['wamopacker=wamopacker.script:run']),
     package_data = {
-        '': ['LICENSE', 'requirements.txt'],
-        'wamopacker': ['data/templates/*']
+        '': [
+            'LICENSE',
+        ],
+        'wamopacker': [
+            'data/*.json',
+            'data/templates/*.template'
+        ]
     },
     install_requires = [],
     setup_requires = [],
