@@ -5,7 +5,7 @@ with open('README.rst', 'r') as f:
 
 setup(
     name = 'wamopacker',
-    version = '0.0.0',
+    version = '0.1.0',
     description = 'Generate and run Packer build configurations from a simple YAML definition',
     long_description = readme,
     license = 'MIT',
