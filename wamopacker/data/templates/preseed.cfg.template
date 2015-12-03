@@ -43,10 +43,10 @@ d-i mirror/http/proxy string
 
 # User
 d-i passwd/root-login boolean false
-d-i passwd/user-fullname string {{ user_account }}
-d-i passwd/username string {{ user_account }}
-d-i passwd/user-password password {{ user_password }}
-d-i passwd/user-password-again password {{ user_password }}
+d-i passwd/user-fullname string $user_account
+d-i passwd/username string $user_account
+d-i passwd/user-password password $user_password
+d-i passwd/user-password-again password $user_password
 d-i user-setup/encrypt-home boolean false
 d-i user-setup/allow-password-weak boolean true
 
@@ -64,7 +64,7 @@ d-i grub-installer/only_debian boolean true
 d-i preseed/late_command string \
     in-target apt-get update ; \
     in-target apt-get -y dist-upgrade ; \
-    echo '{{ user_account }} ALL=(ALL) NOPASSWD: ALL' > /target/etc/sudoers.d/90-virtualbox-user ; \
+    echo '$user_account ALL=(ALL) NOPASSWD: ALL' > /target/etc/sudoers.d/90-virtualbox-user ; \
     chmod 440 /target/etc/sudoers.d/90-virtualbox-user
 
 # All done
