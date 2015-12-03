@@ -5,10 +5,10 @@ from __future__ import print_function, unicode_literals
 import os
 from tempfile import mkdtemp
 from shutil import rmtree
-from jinja2 import Environment, FileSystemLoader
 from json import load, dump
 from .process import run_command
 import re
+from string import Template
 
 
 PRESEED_FILE_NAME = 'preseed.cfg'
@@ -48,16 +48,16 @@ class Builder(object):
         self._target_list = target_list
 
         self._data_path = self._get_data_path()
-        self._template_env = self._get_template_env(self._data_path)
 
     @staticmethod
     def _get_data_path():
         return os.path.join(os.path.dirname(__file__), 'data')
 
-    @staticmethod
-    def _get_template_env(data_path):
-        template_path = os.path.join(data_path, 'templates')
-        return Environment(loader = FileSystemLoader(template_path), trim_blocks = True)
+    def _get_template(self, file_name):
+        template_path = os.path.join(self._data_path, 'templates')
+        template_file_name = os.path.join(template_path, '{}.template'.format(file_name))
+        with open(template_file_name, 'rb') as file_object:
+            return Template(file_object.read())
 
     def build(self):
         packer_config = {
@@ -138,8 +138,8 @@ class Builder(object):
         os.mkdir(packer_http_path)
 
         # generate the preseed text
-        preseed_template = self._template_env.get_template('{}.j2'.format(PRESEED_FILE_NAME))
-        preseed_text = preseed_template.render(
+        preseed_template = self._get_template(PRESEED_FILE_NAME)
+        preseed_text = preseed_template.substitute(
             user_account = virtualbox_config['ssh_username'],
             user_password = virtualbox_config['ssh_password']
         )
@@ -332,6 +332,7 @@ class Builder(object):
         run_command('packer validate {}'.format(packer_config_file_name))
         run_command('packer build {}'.format(packer_config_file_name))
 
-    def _write_packer_config(self, packer_config, file_name):
+    @staticmethod
+    def _write_packer_config(packer_config, file_name):
         with open(file_name, 'w') as file_object:
             dump(packer_config, file_object, indent = 4)
