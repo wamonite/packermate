@@ -6,7 +6,7 @@ import os
 from tempfile import mkdtemp
 from shutil import rmtree
 from json import load, dump
-from .process import run_command
+from .process import run_command, ProcessException
 import re
 from string import Template
 
@@ -329,15 +329,24 @@ class Builder(object):
 
     def _run_packer(self, packer_config, temp_dir):
         if self._dump_packer:
+            print("Dumping packer config to '{}'".format(PACKER_CONFIG_FILE_NAME))
             self._write_packer_config(packer_config, PACKER_CONFIG_FILE_NAME)
 
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
         self._write_packer_config(packer_config, packer_config_file_name)
 
-        run_command('{} validate {}'.format(self._config.packer_command, packer_config_file_name))
+        try:
+            run_command('{} validate {}'.format(self._config.packer_command, packer_config_file_name))
+
+        except (ProcessException, OSError) as e:
+            raise BuilderException('Failed to validate packer config: {}'.format(e))
 
         if not self._dry_run:
-            run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name))
+            try:
+                run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name))
+
+            except (ProcessException, OSError) as e:
+                raise BuilderException('Failed to build packer config: {}'.format(e))
 
     @staticmethod
     def _write_packer_config(packer_config, file_name):
