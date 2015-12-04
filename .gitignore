@@ -3,3 +3,5 @@
 *.pyo
 build
 *.egg-info
+packer.json
+Vagrantfile

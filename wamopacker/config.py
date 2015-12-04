@@ -9,7 +9,7 @@ import os
 
 
 CONFIG_DEFAULTS = {
-    'virtualbox_iso_checksum_tyoe': 'md5',
+    'virtualbox_iso_checksum_type': 'md5',
     'virtualbox_shutdown_command': "echo '(( virtualbox_password ))' | sudo -S shutdown -P now",
     'virtualbox_guest_os_type': 'Ubuntu_64',
     'virtualbox_packer_http_dir': 'packer_http',
@@ -18,7 +18,9 @@ CONFIG_DEFAULTS = {
     'aws_vagrant_box_version': '0',
     'shell_command': "{{ .Vars }} bash '{{ .Path }}'",
     'shell_command_sudo': "sudo -H -S {{ .Vars }} bash '{{ .Path }}'",
+    'packer_command': 'packer'
 }
+CONFIG_FILE_NAME_KEY = 'config_file_name'
 ENV_VAR_PREFIX = 'WAMOPACKER_'
 
 
@@ -31,6 +33,7 @@ class Config(object):
     def __init__(self, config_file_name, override_list = None):
         self._config = deepcopy(CONFIG_DEFAULTS)
 
+        self._config[CONFIG_FILE_NAME_KEY] = config_file_name
         config_file = self._read_config_file(config_file_name)
         self._config.update(config_file)
 
@@ -178,3 +181,63 @@ class Config(object):
 
         except IOError:
             raise ConfigException("Error reading file: name='{}'".format(file_name))
+
+    def __unicode__(self):
+        out_list = self._print_config(self._config)
+
+        line_list = []
+        for out_line in out_list:
+            indent_list, out_val = out_line
+            line_list.append('{}{}'.format(''.join(indent_list), out_val))
+
+        return '\n'.join(line_list)
+
+    def _print_config(self, entry, indent = 0):
+        out_list = []
+
+        if isinstance(entry, dict):
+            for key in sorted(entry.keys()):
+                val = entry[key]
+
+                key_indent = self._get_indent(indent)
+                key_text = '{}:'.format(key)
+
+                val_list = self._print_config(val, indent + 1)
+                if len(val_list) == 1:
+                    val_text = val_list[0][1]
+                    out_list.append((key_indent, '{} {}'.format(key_text, val_text)))
+
+                else:
+                    out_list.append((key_indent, key_text))
+                    for val_list_pair in val_list:
+                        out_list.append(val_list_pair)
+
+        elif isinstance(entry, list):
+            for val in entry:
+                val_list = self._print_config(val, 0)
+                for index, val_list_line in enumerate(val_list):
+                    val_indent, val_text = val_list_line
+                    val_indent = self._get_indent(indent, is_list = index == 0, extend_with = val_indent)
+                    out_list.append((val_indent, val_text))
+
+        else:
+            val_indent = self._get_indent(indent)
+            val_text = '{}'.format(entry)
+
+            out_list.append((val_indent, val_text))
+
+        return out_list
+
+    @staticmethod
+    def _get_indent(indent, is_list = False, extend_with = None):
+        if is_list:
+            indent_list = (indent - 1 if indent > 1 else 0) * ['    ']
+            indent_list.append('  - ')
+
+        else:
+            indent_list = indent * ['    ']
+
+        if extend_with:
+            indent_list.extend(extend_with)
+
+        return indent_list

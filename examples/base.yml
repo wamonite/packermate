@@ -2,6 +2,7 @@
 vm_name: base
 include:
   - ssh_key_name.yml
+ssh_key_file: (( env|HOME ))/.ssh/(( ssh_key_name ))
 virtualbox_user: ubuntu
 virtualbox_password: ubuntu
 virtualbox_iso_url: http://releases.ubuntu.com/trusty/ubuntu-14.04.3-server-amd64.iso
@@ -27,7 +28,7 @@ provisioners:
       - SETUP_USER_ACCOUNT=(( virtualbox_user ))
     execute_command: (( shell_command_sudo ))
   - type: file
-    source: (( env|HOME ))/.ssh/(( ssh_key_name )).pub
+    source: (( ssh_key_file )).pub
     destination: /tmp/(( ssh_key_name )).pub
   - type: shell
     scripts:
