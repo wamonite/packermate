@@ -43,9 +43,11 @@ class BuilderException(Exception):
 
 class Builder(object):
 
-    def __init__(self, config, target_list):
+    def __init__(self, config, target_list, dry_run = False, dump_packer = False):
         self._config = config
         self._target_list = target_list
+        self._dry_run = dry_run
+        self._dump_packer = dump_packer
 
         self._data_path = self._get_data_path()
 
@@ -106,7 +108,7 @@ class Builder(object):
                 ('virtualbox_ovf_output', 'vm_name'),
                 ('virtualbox_iso_url', 'iso_url'),
                 ('virtualbox_iso_checksum', 'iso_checksum'),
-                ('virtualbox_iso_checksum_tyoe', 'iso_checksum_type'),
+                ('virtualbox_iso_checksum_type', 'iso_checksum_type'),
                 ('virtualbox_guest_os_type', 'guest_os_type'),
                 ('virtualbox_disk_mb', 'disk_size'),
                 ('virtualbox_user', 'ssh_username'),
@@ -326,11 +328,16 @@ class Builder(object):
             packer_config['post-processors'].append(vagrant_config)
 
     def _run_packer(self, packer_config, temp_dir):
+        if self._dump_packer:
+            self._write_packer_config(packer_config, PACKER_CONFIG_FILE_NAME)
+
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
         self._write_packer_config(packer_config, packer_config_file_name)
 
-        run_command('packer validate {}'.format(packer_config_file_name))
-        run_command('packer build {}'.format(packer_config_file_name))
+        run_command('{} validate {}'.format(self._config.packer_command, packer_config_file_name))
+
+        if not self._dry_run:
+            run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name))
 
     @staticmethod
     def _write_packer_config(packer_config, file_name):
