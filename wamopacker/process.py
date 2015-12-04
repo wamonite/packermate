@@ -18,7 +18,7 @@ class ProcessException(Exception):
     pass
 
 
-def stream_subprocess(command_list, quiet = False, working_dir = None, out_to_file = None):
+def stream_subprocess(command_list, quiet = False, debug = False, working_dir = None, out_to_file = None):
     process = subprocess.Popen(
         command_list,
         bufsize = 0,
@@ -72,8 +72,8 @@ def stream_subprocess(command_list, quiet = False, working_dir = None, out_to_fi
     return output_std, output_err, process.returncode
 
 
-def run_command(command, quiet = False, working_dir = None, out_to_file = None):
-    if not quiet:
+def run_command(command, quiet = False, debug = False, working_dir = None, out_to_file = None):
+    if not quiet and debug:
         print('RUN: {}{}'.format(command, ' > {}'.format(out_to_file) if out_to_file else ''))
 
     command_list = shlex.split(command)
