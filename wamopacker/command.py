@@ -98,7 +98,7 @@ class Builder(object):
             if self._config.virtualbox_vagrant_box_file:
                 self._build_virtualbox_vagrant_box_file(temp_dir)
 
-            if self._config.virtualbox_ovf_file:
+            if self._config.virtualbox_ovf_input_file:
                 self._build_virtualbox_ovf_file(packer_config, temp_dir)
 
     def _build_virtualbox_iso(self, packer_config, temp_dir):
