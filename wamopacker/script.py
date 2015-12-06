@@ -48,6 +48,8 @@ def run():
         if args.show_config:
             print(unicode(config))
 
+            return
+
         command_list = COMMAND_LOOKUP.get(args.command)
         if command_list:
             command_name = command_list[0]
