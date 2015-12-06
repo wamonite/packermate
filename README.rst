@@ -24,7 +24,7 @@ To Do
 License
 -------
 
-Copyright (c) 2014 Warren Moore
+Copyright (c) 2015 Warren Moore
 
 This software may be redistributed under the terms of the MIT License.
 See the file LICENSE for details.
