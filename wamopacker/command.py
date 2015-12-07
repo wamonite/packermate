@@ -264,7 +264,11 @@ class Builder(object):
                     ('playbook_dir', basestring, False),
                     ('command', basestring, False),
                     ('extra_arguments', list, False),
+                    ('environment_vars', list, False),
                 ),
+            }
+            value_parse_lookup = {
+                'ansible-local': self._parse_provisioner_ansible_local,
             }
 
             provisioner_list = self._config.provisioners
@@ -276,6 +280,10 @@ class Builder(object):
                         provisioner_lookup,
                         value_definition_lookup[provisioner_type]
                     )
+
+                    value_parse_func = value_parse_lookup.get(provisioner_type)
+                    if callable(value_parse_func):
+                        value_parse_func(provisioner_values)
 
                     packer_config['provisioners'].append(provisioner_values)
 
@@ -312,6 +320,15 @@ class Builder(object):
             raise BuilderException("Invalid provision value: name='{}'".format(','.join(provisioner_val_name_set)))
 
         return provisioner_values
+
+    def _parse_provisioner_ansible_local(self, provisioner_values):
+        if 'environment_vars' in provisioner_values and provisioner_values['environment_vars']:
+            extra_arguments_list = provisioner_values.setdefault('extra_arguments', [])
+            for environment_var in provisioner_values['environment_vars']:
+                environment_var_arg = '-e {}'.format(environment_var)
+                extra_arguments_list.append(environment_var_arg)
+
+            del(provisioner_values['environment_vars'])
 
     def _add_vagrant_export(self, packer_config):
         if self._config.vagrant:
