@@ -255,7 +255,9 @@ class Builder(object):
                     ('direction', basestring, False),
                 ),
                 'shell': (
-                    ('scripts', list),
+                    ('inline', list, False),
+                    ('script', basestring, False),
+                    ('scripts', list, False),
                     ('execute_command', basestring, False, '(( shell_command ))'),
                     ('environment_vars', list, False),
                 ),
