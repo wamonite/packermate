@@ -8,5 +8,5 @@ rm -f "${HOME}/.ssh/authorized_keys"
 IFS=':' read -ra file_list <<< "${SSH_PUBLIC_KEY_FILES}"
 for file_name in "${file_list[@]}"
 do
-  cat "${file_name}" >> "${HOME}/.ssh/authorized_keys"
+    cat "${file_name}" >> "${HOME}/.ssh/authorized_keys"
 done
