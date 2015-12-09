@@ -5,7 +5,7 @@
     ["modifyvm", "{{ .Name }}", "--nictype1", "virtio"]
   ],
 
-  "guest_additions_mode": "disable",
+  "guest_additions_path": "/tmp/VBoxGuestAdditions.iso",
 
   "shutdown_command": "sudo -S shutdown -P now"
 }
