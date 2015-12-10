@@ -171,7 +171,7 @@ class Builder(object):
         extract_command = "tar -xzvf '{}' -C '{}'".format(self._config.virtualbox_vagrant_box_file, temp_dir.path)
         run_command(extract_command)
 
-        self._config.virtualbox_ovf_file = os.path.join(temp_dir.path, EXTRACTED_OVF_FILE_NAME)
+        self._config.virtualbox_ovf_input_file = os.path.join(temp_dir.path, EXTRACTED_OVF_FILE_NAME)
 
     def _build_virtualbox_vagrant_box(self, temp_dir):
         extract_command = "vagrant box repackage '{}' virtualbox '{}'".format(
