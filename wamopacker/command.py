@@ -203,6 +203,7 @@ class Builder(object):
                 ('aws_ami_id', 'source_ami'),
                 ('aws_region', 'region'),
                 ('aws_ami_name', 'ami_name'),
+                ('aws_ami_force_deregister', 'force_deregister'),
                 ('aws_instance_type', 'instance_type'),
                 ('aws_user', 'ssh_username'),
                 ('aws_keypair_name', 'ssh_keypair_name'),
