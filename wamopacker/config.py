@@ -15,6 +15,7 @@ CONFIG_DEFAULTS = {
     'virtualbox_packer_http_dir': 'packer_http',
     'virtualbox_vagrant_box_version': '0',
     'aws_ami_name': 'wamopacker {{ isotime \"2006-01-02 15-04\" }}',
+    'aws_ami_force_deregister': False,
     'aws_vagrant_box_version': '0',
     'shell_command': "{{ .Vars }} bash '{{ .Path }}'",
     'shell_command_sudo': "sudo -H -S {{ .Vars }} bash '{{ .Path }}'",
