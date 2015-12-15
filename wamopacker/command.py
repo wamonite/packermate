@@ -87,6 +87,21 @@ class Builder(object):
         with open(file_name, 'r') as file_object:
             return load(file_object)
 
+    def _parse_parameters(self, config_key_list, output_lookup):
+        for config_item in config_key_list:
+            config_key, output_key, output_type = map(
+                    lambda default, val: val or default,
+                    (None, None, basestring),
+                    config_item
+            )
+            if config_key in self._config:
+                val = getattr(self._config, config_key)
+
+                if not isinstance(val, output_type):
+                    raise BuilderException('Parameter type mismatch: name={} expected={} received={}'.format(config_key, output_type, type(val)))
+
+                output_lookup[output_key] = val
+
     def _build_virtualbox(self, packer_config, temp_dir):
         if self._config.virtualbox_iso_url and self._config.virtualbox_iso_checksum:
             self._build_virtualbox_iso(packer_config, temp_dir)
@@ -104,20 +119,19 @@ class Builder(object):
     def _build_virtualbox_iso(self, packer_config, temp_dir):
         packer_virtualbox_iso = self._load_json('packer_virtualbox_iso')
 
-        for config_key, virtualbox_key in (
-                ('virtualbox_ovf_output', 'vm_name'),
-                ('virtualbox_iso_url', 'iso_url'),
-                ('virtualbox_iso_checksum', 'iso_checksum'),
-                ('virtualbox_iso_checksum_type', 'iso_checksum_type'),
-                ('virtualbox_guest_os_type', 'guest_os_type'),
-                ('virtualbox_disk_mb', 'disk_size'),
-                ('virtualbox_user', 'ssh_username'),
-                ('virtualbox_password', 'ssh_password'),
-                ('virtualbox_shutdown_command', 'shutdown_command'),
-                ('virtualbox_output_directory', 'output_directory'),
-        ):
-            if config_key in self._config:
-                packer_virtualbox_iso[virtualbox_key] = getattr(self._config, config_key)
+        config_key_list = (
+            ('virtualbox_ovf_output', 'vm_name'),
+            ('virtualbox_iso_url', 'iso_url'),
+            ('virtualbox_iso_checksum', 'iso_checksum'),
+            ('virtualbox_iso_checksum_type', 'iso_checksum_type'),
+            ('virtualbox_guest_os_type', 'guest_os_type'),
+            ('virtualbox_disk_mb', 'disk_size'),
+            ('virtualbox_user', 'ssh_username'),
+            ('virtualbox_password', 'ssh_password'),
+            ('virtualbox_shutdown_command', 'shutdown_command'),
+            ('virtualbox_output_directory', 'output_directory'),
+        )
+        self._parse_parameters(config_key_list, packer_virtualbox_iso)
 
         vboxmanage_list = packer_virtualbox_iso.setdefault('vboxmanage', [])
         for vboxmanage_attr, vboxmanage_cmd in (
@@ -154,16 +168,15 @@ class Builder(object):
     def _build_virtualbox_ovf_file(self, packer_config, temp_dir):
         packer_virtualbox_ovf = self._load_json('packer_virtualbox_ovf')
 
-        for config_key, virtualbox_key in (
-                ('virtualbox_ovf_output', 'vm_name'),
-                ('virtualbox_user', 'ssh_username'),
-                ('virtualbox_password', 'ssh_password'),
-                ('virtualbox_private_key_file', 'ssh_key_path'),  # https://github.com/mitchellh/packer/issues/2428
-                ('virtualbox_ovf_input_file', 'source_path'),
-                ('virtualbox_output_directory', 'output_directory'),
-        ):
-            if config_key in self._config:
-                packer_virtualbox_ovf[virtualbox_key] = getattr(self._config, config_key)
+        config_key_list = (
+            ('virtualbox_ovf_output', 'vm_name'),
+            ('virtualbox_user', 'ssh_username'),
+            ('virtualbox_password', 'ssh_password'),
+            ('virtualbox_private_key_file', 'ssh_key_path'),  # https://github.com/mitchellh/packer/issues/2428
+            ('virtualbox_ovf_input_file', 'source_path'),
+            ('virtualbox_output_directory', 'output_directory'),
+        )
+        self._parse_parameters(config_key_list, packer_virtualbox_ovf)
 
         packer_config['builders'].append(packer_virtualbox_ovf)
 
@@ -197,22 +210,23 @@ class Builder(object):
             'type': 'amazon-ebs'
         }
 
-        for config_key, aws_key in (
-                ('aws_access_key', 'access_key'),
-                ('aws_secret_key', 'secret_key'),
-                ('aws_ami_id', 'source_ami'),
-                ('aws_region', 'region'),
-                ('aws_ami_name', 'ami_name'),
-                ('aws_ami_force_deregister', 'force_deregister'),
-                ('aws_instance_type', 'instance_type'),
-                ('aws_user', 'ssh_username'),
-                ('aws_keypair_name', 'ssh_keypair_name'),
-                ('aws_private_key_file', 'ssh_private_key_file'),
-                ('aws_disk_gb', 'volume_size'),
-                ('aws_disk_type', 'volume_type'),
-        ):
-            if config_key in self._config:
-                packer_amazon_ebs[aws_key] = getattr(self._config, config_key)
+        config_key_list = (
+            ('aws_access_key', 'access_key'),
+            ('aws_secret_key', 'secret_key'),
+            ('aws_ami_id', 'source_ami'),
+            ('aws_region', 'region'),
+            ('aws_ami_name', 'ami_name'),
+            ('aws_ami_force_deregister', 'force_deregister', bool),
+            ('aws_instance_type', 'instance_type'),
+            ('aws_user', 'ssh_username'),
+            ('aws_keypair_name', 'ssh_keypair_name'),
+            ('aws_private_key_file', 'ssh_private_key_file'),
+            ('aws_disk_gb', 'volume_size'),
+            ('aws_disk_type', 'volume_type'),
+            ('aws_ami_tags', 'tags', dict),
+            ('aws_ami_builder_tags', 'run_tags', dict),
+        )
+        self._parse_parameters(config_key_list, packer_amazon_ebs)
 
         packer_config['builders'].append(packer_amazon_ebs)
 
