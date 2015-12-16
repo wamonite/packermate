@@ -9,6 +9,7 @@ from json import load, dump
 from .process import run_command, ProcessException
 import re
 from string import Template
+import json
 
 
 PRESEED_FILE_NAME = 'preseed.cfg'
@@ -90,7 +91,7 @@ class Builder(object):
     def _parse_parameters(self, config_key_list, output_lookup):
         for config_item in config_key_list:
             config_key, output_key, output_type = map(
-                    lambda default, val: val or default,
+                    lambda default, val: val if val is not None else default,
                     (None, None, basestring),
                     config_item
             )
@@ -265,23 +266,23 @@ class Builder(object):
 
             value_definition_lookup = {
                 'file': (
-                    ('source', basestring),
-                    ('destination', basestring),
-                    ('direction', basestring, False),
+                    {'name': 'source' },
+                    {'name': 'destination' },
+                    {'name': 'direction', 'required': False},
                 ),
                 'shell': (
-                    ('inline', list, False),
-                    ('script', basestring, False),
-                    ('scripts', list, False),
-                    ('execute_command', basestring, False, '(( shell_command ))'),
-                    ('environment_vars', list, False),
+                    {'name': 'inline', 'type': list, 'required': False},
+                    {'name': 'script', 'required': False},
+                    {'name': 'scripts', 'type': list, 'required': False},
+                    {'name': 'execute_command', 'required': False, 'default': '(( shell_command ))'},
+                    {'name': 'environment_vars', 'type': list, 'required': False},
                 ),
                 'ansible-local': (
-                    ('playbook_file', basestring),
-                    ('playbook_dir', basestring, False),
-                    ('command', basestring, False),
-                    ('extra_arguments', list, False),
-                    ('environment_vars', list, False),
+                    {'name': 'playbook_file'},
+                    {'name': 'playbook_dir', 'required': False},
+                    {'name': 'command', 'required': False},
+                    {'name': 'extra_arguments', 'type': list, 'required': False},
+                    {'name': 'extra_vars', 'type': dict, 'required': False, 'func': self._to_expanded_json},
                 ),
             }
             value_parse_lookup = {
@@ -315,10 +316,11 @@ class Builder(object):
         provisioner_val_name_set = set(provisioner_lookup.keys())
         provisioner_val_name_set.remove('type')
         for val_items in value_definition:
-            val_name = val_items[0]
-            val_type = val_items[1]
-            val_required = val_items[2] if len(val_items) > 2 else True
-            val_default = self._config.expand_parameters(val_items[3]) if len(val_items) > 3 else None
+            val_name = val_items['name']
+            val_type = val_items.get('type', basestring)
+            val_required = val_items.get('required', True)
+            val_default = self._config.expand_parameters(val_items.get('default'))
+            val_func = val_items.get('func')
 
             val = provisioner_lookup.get(val_name, val_default)
             if not isinstance(val, val_type):
@@ -329,6 +331,9 @@ class Builder(object):
                         val_type.__name__
                     ))
 
+            if callable(val_func):
+                val = val_func(val)
+
             if val:
                 provisioner_values[val_name] = val
                 provisioner_val_name_set.discard(val_name)
@@ -338,14 +343,17 @@ class Builder(object):
 
         return provisioner_values
 
-    def _parse_provisioner_ansible_local(self, provisioner_values):
-        if 'environment_vars' in provisioner_values and provisioner_values['environment_vars']:
-            extra_arguments_list = provisioner_values.setdefault('extra_arguments', [])
-            for environment_var in provisioner_values['environment_vars']:
-                environment_var_arg = '-e {}'.format(environment_var)
-                extra_arguments_list.append(environment_var_arg)
+    def _to_expanded_json(self, val):
+        val_expanded = self._config.expand_parameters(val)
+        return json.dumps(val_expanded, indent = None)
 
-            del(provisioner_values['environment_vars'])
+    def _parse_provisioner_ansible_local(self, provisioner_values):
+        extra_vars = provisioner_values.get('extra_vars')
+        if extra_vars:
+            extra_arguments_list = provisioner_values.setdefault('extra_arguments', [])
+            extra_arguments_list.append("-e '{}'".format(extra_vars))
+
+            del(provisioner_values['extra_vars'])
 
     def _add_vagrant_export(self, packer_config):
         if self._config.vagrant:
