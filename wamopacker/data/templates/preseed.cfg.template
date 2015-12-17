@@ -63,8 +63,8 @@ d-i grub-installer/only_debian boolean true
 # sudo from user doesn't require password
 d-i preseed/late_command string \
     in-target apt-get update ; \
-    echo '$user_account ALL=(ALL) NOPASSWD: ALL' > /target/etc/sudoers.d/90-virtualbox-user ; \
-    chmod 440 /target/etc/sudoers.d/90-virtualbox-user
+    echo '$user_account ALL=(ALL) NOPASSWD: ALL' > /target/etc/sudoers.d/90-iso-install-user ; \
+    chmod 440 /target/etc/sudoers.d/90-iso-install-user
 
 # All done
 d-i finish-install/reboot_in_progress note
