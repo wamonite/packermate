@@ -6,6 +6,7 @@ from yaml import safe_load
 from copy import deepcopy
 import re
 import os
+import uuid
 
 
 CONFIG_DEFAULTS = {
@@ -152,8 +153,12 @@ class Config(object):
                         raise ConfigException("Unknown parameter prefix: type='{}'".format(val_key_type))
 
                 else:
+                    # uuid
+                    if val_key == 'uuid':
+                        val_new = uuid.uuid4().hex
+
                     # existing parameter
-                    if val_key in self._config:
+                    elif val_key in self._config:
                         val_new = self._config[val_key]
 
                     else:
