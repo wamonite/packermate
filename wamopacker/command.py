@@ -226,6 +226,7 @@ class Builder(object):
             ('aws_disk_type', 'volume_type'),
             ('aws_ami_tags', 'tags', dict),
             ('aws_ami_builder_tags', 'run_tags', dict),
+            ('aws_iam_instance_profile', 'iam_instance_profile'),
         )
         self._parse_parameters(config_key_list, packer_amazon_ebs)
 
