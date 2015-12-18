@@ -48,13 +48,14 @@ class Config(object):
             self._config.update(var_lookup)
 
         self._re = re.compile('^(.*)\(\(\s*([^\)\s]+)\s*\)\)(.*)$')
+        self._uuid_cache = {}
 
     def __getattr__(self, item):
         if item in self._config:
             return self.expand_parameters(self._config[item])
 
     def __setattr__(self, item, value):
-        if item in ('_config', '_re'):
+        if item in ('_config', '_re', '_uuid_cache'):
             super(Config, self).__setattr__(item, value)
 
         else:
@@ -149,16 +150,15 @@ class Config(object):
                     elif val_key_type == 'file':
                         val_new = self._get_file_content(val_key_name)
 
+                    elif val_key_type == 'uuid':
+                        val_new = self._get_uuid(val_key_name)
+
                     else:
                         raise ConfigException("Unknown parameter prefix: type='{}'".format(val_key_type))
 
                 else:
-                    # uuid
-                    if val_key == 'uuid':
-                        val_new = uuid.uuid4().hex
-
                     # existing parameter
-                    elif val_key in self._config:
+                    if val_key in self._config:
                         val_new = self._config[val_key]
 
                     else:
@@ -187,6 +187,9 @@ class Config(object):
 
         except IOError:
             raise ConfigException("Error reading file: name='{}'".format(file_name))
+
+    def _get_uuid(self, uuid_key):
+        return self._uuid_cache.setdefault(uuid_key, uuid.uuid4().hex)
 
     def __unicode__(self):
         out_list = self._print_config(self._config)
