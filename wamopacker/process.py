@@ -8,17 +8,24 @@ import os
 import sys
 import shlex
 from StringIO import StringIO
+import logging
 
 
 RUN_COMMAND_POLL_SECONDS = 1
 RUN_COMMAND_READ_BYTES = 1024
 
 
+logger = logging.getLogger('wamopacker.process')
+
+
+__all__ = ['stream_subprocess', 'run_command', 'ProcessException']
+
+
 class ProcessException(Exception):
     pass
 
 
-def stream_subprocess(command_list, quiet = False, debug = False, working_dir = None, out_to_file = None):
+def stream_subprocess(command_list, quiet = False, working_dir = None, out_to_file = None):
     process = subprocess.Popen(
         command_list,
         bufsize = 0,
@@ -72,9 +79,9 @@ def stream_subprocess(command_list, quiet = False, debug = False, working_dir = 
     return output_std, output_err, process.returncode
 
 
-def run_command(command, quiet = False, debug = False, working_dir = None, out_to_file = None):
-    if not quiet and debug:
-        print('RUN: {}{}'.format(command, ' > {}'.format(out_to_file) if out_to_file else ''))
+def run_command(command, quiet = False, working_dir = None, out_to_file = None):
+    if not quiet:
+        logger.debug('{}{}'.format(command, ' > {}'.format(out_to_file) if out_to_file else ''))
 
     command_list = shlex.split(command)
     output_std, output_err, exit_code = stream_subprocess(
