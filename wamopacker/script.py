@@ -8,6 +8,7 @@ from .config import Config, ConfigException
 from .command import Builder, BuilderException
 from .process import ProcessException
 from collections import OrderedDict
+import logging
 
 
 DEFAULT_CONFIG_FILE_NAME = 'wamopacker.yml'
@@ -16,6 +17,21 @@ COMMAND_LOOKUP = OrderedDict([
     ('aws', ('build', 'aws')),
     ('all', ('build', 'virtualbox', 'aws')),
 ])
+LOG_FORMAT = '%(asctime)s %(name)s[%(process)s] %(levelname)s: %(message)s'
+LOG_FORMAT_DATE = '%Y-%m-%d %H:%M:%S'
+LOG_LEVEL = logging.INFO
+
+
+def configure_logging(level = LOG_LEVEL, format_message = LOG_FORMAT, format_date = LOG_FORMAT_DATE):
+    logger = logging.getLogger()
+    logger.setLevel(level)
+
+    log_handler = logging.StreamHandler()
+    log_handler.setLevel(level)
+    logger.addHandler(log_handler)
+
+    log_format = logging.Formatter(format_message, datefmt = format_date)
+    log_handler.setFormatter(log_format)
 
 
 def parse_arguments():
@@ -41,6 +57,9 @@ def parse_arguments():
 
 
 def run():
+    configure_logging()
+    logger = logging.getLogger('wamopacker.script')
+
     try:
         args = parse_arguments()
         config = Config(args.config, args.param)
@@ -60,7 +79,7 @@ def run():
                 command_func()
 
     except (ConfigException, BuilderException, ProcessException, NotImplementedError) as e:
-        print('ERROR:{}: {}'.format(e.__class__.__name__, e), file = sys.stderr)
+        logger.error('{}: {}'.format(e.__class__.__name__, e))
         sys.exit(1)
 
     except KeyboardInterrupt:
