@@ -393,18 +393,18 @@ class Builder(object):
 
     def _run_packer(self, packer_config, temp_dir):
         if self._dump_packer:
-            logger.info("Dumping packer config to '{}'".format(PACKER_CONFIG_FILE_NAME))
+            logger.info("Dumping packer configuration to '{}'".format(PACKER_CONFIG_FILE_NAME))
             self._write_packer_config(packer_config, PACKER_CONFIG_FILE_NAME)
 
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
         self._write_packer_config(packer_config, packer_config_file_name)
 
         try:
-            logger.info('Validating packer config')
+            logger.info('Validating packer configuration')
             run_command('{} validate {}'.format(self._config.packer_command, packer_config_file_name))
 
         except (ProcessException, OSError) as e:
-            raise BuilderException('Failed to validate packer config: {}'.format(e))
+            raise BuilderException('Failed to validate packer configuration: {}'.format(e))
 
         if not self._dry_run:
             try:
@@ -412,7 +412,7 @@ class Builder(object):
                 run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name))
 
             except (ProcessException, OSError) as e:
-                raise BuilderException('Failed to build packer config: {}'.format(e))
+                raise BuilderException('Failed to build packer configuration: {}'.format(e))
 
     @staticmethod
     def _write_packer_config(packer_config, file_name):
