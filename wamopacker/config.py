@@ -7,6 +7,7 @@ from copy import deepcopy
 import re
 import os
 import uuid
+import logging
 
 
 CONFIG_DEFAULTS = {
@@ -26,11 +27,23 @@ CONFIG_FILE_NAME_KEY = 'config_file_name'
 ENV_VAR_PREFIX = 'WAMOPACKER_'
 
 
+logger = logging.getLogger('wamopacker.config')
+
+
+__all__ = ['ConfigException', 'ConfigLoadException', 'Config']
+
+
 class ConfigException(Exception):
     pass
 
 
+class ConfigLoadException(ConfigException):
+    pass
+
+
 class Config(object):
+
+    _re = re.compile('^(.*)\(\(\s*([^\)\s]+)\s*\)\)(.*)$')
 
     def __init__(self, config_file_name, override_list = None):
         self._config = deepcopy(CONFIG_DEFAULTS)
@@ -38,6 +51,11 @@ class Config(object):
         self._config[CONFIG_FILE_NAME_KEY] = config_file_name
         config_file = self._read_config_file(config_file_name)
         self._config.update(config_file)
+
+        logger.info("Loaded config file='{}'".format(config_file_name))
+
+        config_file_includes = self._read_config_includes(config_file_name)
+        self._config.update(config_file_includes)
 
         if isinstance(override_list, list):
             override_lookup = self._parse_overrides(override_list)
@@ -47,7 +65,6 @@ class Config(object):
         if var_lookup:
             self._config.update(var_lookup)
 
-        self._re = re.compile('^(.*)\(\(\s*([^\)\s]+)\s*\)\)(.*)$')
         self._uuid_cache = {}
 
     def __getattr__(self, item):
@@ -70,7 +87,7 @@ class Config(object):
                 config = safe_load(file_object)
 
         except IOError:
-            raise ConfigException("Unable to load config: file_name='{}'".format(file_name))
+            raise ConfigLoadException("Unable to load config: file_name='{}'".format(file_name))
 
         if not config:
             return {}
@@ -79,17 +96,59 @@ class Config(object):
             raise ConfigException("Config file should contain a valid YAML dictionary: file_name='{}'".format(file_name))
 
         if 'include' in config:
+            del(config['include'])
+
+        if 'include_optional' in config:
+            del(config['include_optional'])
+
+        return config
+
+    def _read_config_includes(self, file_name):
+        try:
+            with open(file_name) as file_object:
+                config = safe_load(file_object)
+
+        except IOError:
+            raise ConfigLoadException("Unable to load config: file_name='{}'".format(file_name))
+
+        if not config:
+            return {}
+
+        if not isinstance(config, dict):
+            raise ConfigException("Config file should contain a valid YAML dictionary: file_name='{}'".format(file_name))
+
+        config_includes = {}
+
+        if 'include' in config:
             if not isinstance(config['include'], list):
                 raise ConfigException("Config file includes should contain a valid YAML list: file_name='{}'".format(file_name))
 
             for include_file_name in config['include']:
-                config_include = self._read_config_file(include_file_name)
+                include_file_name_full = self.expand_parameters(include_file_name)
+                include_data = self._read_config_file(include_file_name_full)
 
-                config.update(config_include)
+                config_includes.update(include_data)
 
-            del(config['include'])
+                logger.info("Included config file='{}'".format(include_file_name_full))
 
-        return config
+        if 'include_optional' in config:
+            if not isinstance(config['include_optional'], list):
+                raise ConfigException("Config file optional includes should contain a valid YAML list: file_name='{}'".format(file_name))
+
+            for include_file_name in config['include_optional']:
+                try:
+                    include_file_name_full = self.expand_parameters(include_file_name)
+                    include_data = self._read_config_file(include_file_name_full)
+
+                except ConfigLoadException:
+                    logger.info("Skipped optional config file='{}'".format(include_file_name_full))
+
+                else:
+                    config_includes.update(include_data)
+
+                    logger.info("Included config file='{}'".format(include_file_name_full))
+
+        return config_includes
 
     @staticmethod
     def _parse_overrides(override_list):
@@ -140,8 +199,21 @@ class Config(object):
             if match:
                 val_before, val_key, val_after = match.groups()
 
-                val_key_list = val_key.split('|')
-                if len(val_key_list) == 2:
+                val_key_list = map(lambda val_str: val_str.strip(), val_key.split('|'))
+                if len(val_key_list) == 3:
+                    # special parameter prefix
+                    val_key_type, val_key_name, val_key_extra = val_key_list
+                    if val_key_type == 'env':
+                        try:
+                            val_new = self._get_env_var(val_key_name)
+
+                        except ConfigException:
+                            val_new = val_key_extra
+
+                    else:
+                        raise ConfigException("Unknown parameter combination: type='{}' extra='{}'".format(val_key_type, val_key_extra))
+
+                elif len(val_key_list) == 2:
                     # special parameter prefix
                     val_key_type, val_key_name = val_key_list
                     if val_key_type == 'env':
