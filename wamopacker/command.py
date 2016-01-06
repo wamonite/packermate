@@ -247,31 +247,22 @@ class Builder(object):
         )
         self._parse_parameters(config_key_list, packer_amazon_ebs)
 
-        default_block_device_mappings = [
-            {
-                'device_name': '/dev/sda1',
-                'delete_on_termination': True
-            },
-            {
-                'device_name': '/dev/xvdb',
-                'virtual_name': 'ephemeral0',
-            },
-            {
-                'device_name': '/dev/xvdc',
-                'virtual_name': 'ephemeral1',
-            }
-        ]
-
         # add extra root partition options
         for key_name in ('volume_size', 'volume_type'):
             if key_name in packer_amazon_ebs:
-                block_device = default_block_device_mappings[0]
-                block_device[key_name] = packer_amazon_ebs[key_name]
+                default_block_device_mappings = [
+                    {
+                        'device_name': '/dev/sda1',
+                        'delete_on_termination': True
+                    }
+                ]
+                ami_block_device_mapping = packer_amazon_ebs.setdefault('ami_block_device_mappings', default_block_device_mappings)
+                launch_block_device_mapping = packer_amazon_ebs.setdefault('launch_block_device_mappings', default_block_device_mappings)
+
+                ami_block_device_mapping[0][key_name] = packer_amazon_ebs[key_name]
+                launch_block_device_mapping[0][key_name] = packer_amazon_ebs[key_name]
 
                 del(packer_amazon_ebs[key_name])
-
-        packer_amazon_ebs['ami_block_device_mappings'] = default_block_device_mappings
-        packer_amazon_ebs['launch_block_device_mappings'] = default_block_device_mappings
 
         packer_config['builders'].append(packer_amazon_ebs)
 
