@@ -262,19 +262,17 @@ class Builder(object):
                 'virtual_name': 'ephemeral1',
             }
         ]
-        ami_device_mappings = packer_amazon_ebs.setdefault('ami_block_device_mappings', default_block_device_mappings)
-        launch_device_mappings = packer_amazon_ebs.setdefault('launch_block_device_mappings', default_block_device_mappings)
 
         # add extra root partition options
         for key_name in ('volume_size', 'volume_type'):
             if key_name in packer_amazon_ebs:
-                ami_device = ami_device_mappings[0]
-                launch_device = launch_device_mappings[0]
-
-                ami_device[key_name] = packer_amazon_ebs[key_name]
-                launch_device[key_name] = packer_amazon_ebs[key_name]
+                block_device = default_block_device_mappings[0]
+                block_device[key_name] = packer_amazon_ebs[key_name]
 
                 del(packer_amazon_ebs[key_name])
+
+        packer_amazon_ebs['ami_block_device_mappings'] = default_block_device_mappings
+        packer_amazon_ebs['launch_block_device_mappings'] = default_block_device_mappings
 
         packer_config['builders'].append(packer_amazon_ebs)
 
