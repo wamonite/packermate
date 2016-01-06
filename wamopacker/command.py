@@ -444,4 +444,4 @@ class Builder(object):
     @staticmethod
     def _write_packer_config(packer_config, file_name):
         with open(file_name, 'w') as file_object:
-            dump(packer_config, file_object, indent = 4)
+            dump(packer_config, file_object, indent = 4, sort_keys = True)
