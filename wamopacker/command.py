@@ -247,7 +247,6 @@ class Builder(object):
         )
         self._parse_parameters(config_key_list, packer_amazon_ebs)
 
-        # default block device mappings
         default_block_device_mappings = [
             {
                 'device_name': '/dev/sda1',
@@ -420,26 +419,26 @@ class Builder(object):
 
     def _run_packer(self, packer_config, temp_dir):
         if self._dump_packer:
-            logger.info("Dumping packer configuration to '{}'".format(PACKER_CONFIG_FILE_NAME))
+            logger.info("Dumping Packer configuration to '{}'".format(PACKER_CONFIG_FILE_NAME))
             self._write_packer_config(packer_config, PACKER_CONFIG_FILE_NAME)
 
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
         self._write_packer_config(packer_config, packer_config_file_name)
 
         try:
-            logger.info('Validating packer configuration')
+            logger.info('Validating Packer configuration')
             run_command('{} validate {}'.format(self._config.packer_command, packer_config_file_name))
 
         except (ProcessException, OSError) as e:
-            raise BuilderException('Failed to validate packer configuration: {}'.format(e))
+            raise BuilderException('Failed to validate Packer configuration: {}'.format(e))
 
         if not self._dry_run:
             try:
-                logger.info('Building packer configuration')
+                logger.info('Building Packer configuration')
                 run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name))
 
             except (ProcessException, OSError) as e:
-                raise BuilderException('Failed to build packer configuration: {}'.format(e))
+                raise BuilderException('Failed to build Packer configuration: {}'.format(e))
 
     @staticmethod
     def _write_packer_config(packer_config, file_name):
