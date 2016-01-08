@@ -19,7 +19,7 @@ EXTRACTED_OVF_FILE_NAME = 'box.ovf'
 REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 
 
-logger = logging.getLogger('wamopacker.command')
+log = logging.getLogger('wamopacker.command')
 
 
 __all__ = ['Builder', 'BuilderException']
@@ -112,12 +112,12 @@ class Builder(object):
 
     def _build_virtualbox(self, packer_config, temp_dir):
         if self._config.virtualbox_iso_url and self._config.virtualbox_iso_checksum:
-            logger.info('Bulding VirtualBox ISO configuration')
+            log.info('Bulding VirtualBox ISO configuration')
 
             self._build_virtualbox_iso(packer_config, temp_dir)
 
         else:
-            logger.info('Bulding VirtualBox OVF configuration')
+            log.info('Bulding VirtualBox OVF configuration')
 
             if self._config.virtualbox_vagrant_box_name and self._config.virtualbox_vagrant_box_version:
                 self._build_virtualbox_vagrant_box(temp_dir)
@@ -193,7 +193,7 @@ class Builder(object):
         packer_config['builders'].append(packer_virtualbox_ovf)
 
     def _build_virtualbox_vagrant_box_file(self, temp_dir):
-        logger.info('Extracting VirtualBox OVF file from Vagrant box')
+        log.info('Extracting VirtualBox OVF file from Vagrant box')
 
         extract_command = "tar -xzvf '{}' -C '{}'".format(self._config.virtualbox_vagrant_box_file, temp_dir.path)
         run_command(extract_command)
@@ -201,7 +201,7 @@ class Builder(object):
         self._config.virtualbox_ovf_input_file = os.path.join(temp_dir.path, EXTRACTED_OVF_FILE_NAME)
 
     def _build_virtualbox_vagrant_box(self, temp_dir):
-        logger.info('Extracting installed VirtualBox Vagrant box')
+        log.info('Extracting installed VirtualBox Vagrant box')
 
         extract_command = "vagrant box repackage '{}' virtualbox '{}'".format(
             self._config.virtualbox_vagrant_box_name,
@@ -212,7 +212,7 @@ class Builder(object):
         self._config.virtualbox_vagrant_box_file = os.path.join(temp_dir.path, REPACKAGED_VAGRANT_BOX_FILE_NAME)
 
     def _build_aws(self, packer_config, temp_dir):
-        logger.info('Building AWS configuration')
+        log.info('Building AWS configuration')
 
         if self._config.aws_vagrant_box_name and self._config.aws_vagrant_box_version:
             self._build_aws_vagrant_box(temp_dir)
@@ -267,7 +267,7 @@ class Builder(object):
         packer_config['builders'].append(packer_amazon_ebs)
 
     def _build_aws_vagrant_box_file(self, packer_config, temp_dir):
-        logger.info('Extracting AWS AMI id from Vagrant box')
+        log.info('Extracting AWS AMI id from Vagrant box')
 
         extract_command = 'tar -xzvf {} -C {} Vagrantfile'.format(self._config.aws_vagrant_box_file, temp_dir.path)
         run_command(extract_command)
@@ -288,7 +288,7 @@ class Builder(object):
         self._config.aws_ami_id = found_ami_id
 
     def _build_aws_vagrant_box(self, temp_dir):
-        logger.info('Extracting installed AWS Vagrant box')
+        log.info('Extracting installed AWS Vagrant box')
 
         extract_command = "vagrant box repackage '{}' aws '{}'".format(
             self._config.aws_vagrant_box_name,
@@ -410,14 +410,14 @@ class Builder(object):
 
     def _run_packer(self, packer_config, temp_dir):
         if self._dump_packer:
-            logger.info("Dumping Packer configuration to '{}'".format(PACKER_CONFIG_FILE_NAME))
+            log.info("Dumping Packer configuration to '{}'".format(PACKER_CONFIG_FILE_NAME))
             self._write_packer_config(packer_config, PACKER_CONFIG_FILE_NAME)
 
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
         self._write_packer_config(packer_config, packer_config_file_name)
 
         try:
-            logger.info('Validating Packer configuration')
+            log.info('Validating Packer configuration')
             run_command('{} validate {}'.format(self._config.packer_command, packer_config_file_name))
 
         except (ProcessException, OSError) as e:
@@ -425,7 +425,7 @@ class Builder(object):
 
         if not self._dry_run:
             try:
-                logger.info('Building Packer configuration')
+                log.info('Building Packer configuration')
                 run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name))
 
             except (ProcessException, OSError) as e:

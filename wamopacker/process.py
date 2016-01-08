@@ -15,7 +15,7 @@ RUN_COMMAND_POLL_SECONDS = 1
 RUN_COMMAND_READ_BYTES = 1024
 
 
-logger = logging.getLogger('wamopacker.process')
+log = logging.getLogger('wamopacker.process')
 
 
 __all__ = ['stream_subprocess', 'run_command', 'ProcessException']
@@ -81,7 +81,7 @@ def stream_subprocess(command_list, quiet = False, working_dir = None, out_to_fi
 
 def run_command(command, quiet = False, working_dir = None, out_to_file = None):
     if not quiet:
-        logger.debug('{}{}'.format(command, ' > {}'.format(out_to_file) if out_to_file else ''))
+        log.debug('{}{}'.format(command, ' > {}'.format(out_to_file) if out_to_file else ''))
 
     command_list = shlex.split(command)
     output_std, output_err, exit_code = stream_subprocess(
