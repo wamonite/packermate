@@ -12,6 +12,7 @@ import logging
 
 CONFIG_DEFAULTS = {
     'virtualbox_iso_checksum_type': 'md5',
+    'virtualbox_password': '',
     'virtualbox_shutdown_command': "echo '(( virtualbox_password ))' | sudo -S shutdown -P now",
     'virtualbox_guest_os_type': 'Ubuntu_64',
     'virtualbox_packer_http_dir': 'packer_http',
@@ -27,7 +28,7 @@ CONFIG_FILE_NAME_KEY = 'config_file_name'
 ENV_VAR_PREFIX = 'WAMOPACKER_'
 
 
-logger = logging.getLogger('wamopacker.config')
+log = logging.getLogger('wamopacker.config')
 
 
 __all__ = ['ConfigException', 'ConfigLoadException', 'Config']
@@ -43,19 +44,20 @@ class ConfigLoadException(ConfigException):
 
 class Config(object):
 
-    _re = re.compile('^(.*)\(\(\s*([^\)\s]+)\s*\)\)(.*)$')
-
-    def __init__(self, config_file_name, override_list = None):
+    def __init__(self, config_file_name = None, override_list = None):
         self._config = deepcopy(CONFIG_DEFAULTS)
+        self._re = re.compile('^(.*)\(\(\s*([^\)\s]+)\s*\)\)(.*)$')
+        self._uuid_cache = {}
 
-        self._config[CONFIG_FILE_NAME_KEY] = config_file_name
-        config_file = self._read_config_file(config_file_name)
-        self._config.update(config_file)
+        if config_file_name:
+            self._config[CONFIG_FILE_NAME_KEY] = config_file_name
+            config_file = self._read_config_file(config_file_name)
+            self._config.update(config_file)
 
-        logger.info("Loaded config file='{}'".format(config_file_name))
+            log.info("Loaded config file='{}'".format(config_file_name))
 
-        config_file_includes = self._read_config_includes(config_file_name)
-        self._config.update(config_file_includes)
+            config_file_includes = self._read_config_includes(config_file_name)
+            self._config.update(config_file_includes)
 
         if isinstance(override_list, list):
             override_lookup = self._parse_overrides(override_list)
@@ -64,8 +66,6 @@ class Config(object):
         var_lookup = self._parse_env_vars()
         if var_lookup:
             self._config.update(var_lookup)
-
-        self._uuid_cache = {}
 
     def __getattr__(self, item):
         if item in self._config:
@@ -81,7 +81,8 @@ class Config(object):
     def __contains__(self, item):
         return item in self._config
 
-    def _read_config_file(self, file_name):
+    @staticmethod
+    def _read_config_file(file_name):
         try:
             with open(file_name) as file_object:
                 config = safe_load(file_object)
@@ -129,24 +130,24 @@ class Config(object):
 
                 config_includes.update(include_data)
 
-                logger.info("Included config file='{}'".format(include_file_name_full))
+                log.info("Included config file='{}'".format(include_file_name_full))
 
         if 'include_optional' in config:
             if not isinstance(config['include_optional'], list):
                 raise ConfigException("Config file optional includes should contain a valid YAML list: file_name='{}'".format(file_name))
 
             for include_file_name in config['include_optional']:
+                include_file_name_full = self.expand_parameters(include_file_name)
                 try:
-                    include_file_name_full = self.expand_parameters(include_file_name)
                     include_data = self._read_config_file(include_file_name_full)
 
                 except ConfigLoadException:
-                    logger.info("Skipped optional config file='{}'".format(include_file_name_full))
+                    log.info("Skipped optional config file='{}'".format(include_file_name_full))
 
                 else:
                     config_includes.update(include_data)
 
-                    logger.info("Included config file='{}'".format(include_file_name_full))
+                    log.info("Included config file='{}'".format(include_file_name_full))
 
         return config_includes
 
