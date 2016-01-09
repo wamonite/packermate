@@ -47,6 +47,7 @@ def config_with_data(env_var):
     conf = Config()
     conf.foo = '123'
     conf.bar = '456'
+    conf.empty = ''
     return conf
 
 
@@ -76,6 +77,17 @@ def config_values_id_func(fixture_value):
         ('test ((foo))', 'test 123'),
         (' test ((foo))', 'test 123'),
         ('test ((foo)) ', 'test 123'),
+        ('test  ((foo)) ', 'test  123'),
+        ('((foo)) test', '123 test'),
+        ('((foo)) test ', '123 test'),
+        (' ((foo)) test', '123 test'),
+        ('((foo))  test', '123  test'),
+        ('(( default | foo | bar ))', 'foo'),
+        ('(( default || bar ))', 'bar'),
+        ('(( default | | bar ))', 'bar'),
+        ('(( default | (( foo )) | bar ))', '123'),
+        ('(( default | (( empty )) | bar ))', 'bar'),
+        ('(( env | {} ))'.format(TEST_VAR_KEY), TEST_VAR_VALUE),
     ],
     ids = config_values_id_func
 )
@@ -101,11 +113,12 @@ def config_values(request, config_with_data):
         '))  ',
         ' )) ',
         '  ))  ',
-        '(( unknown ))',
+        '(( undefined ))',
         '(((( foo ))))',
         '(( | ))',
-        '(( unknown | ))',
+        '(( undefined | ))',
         '(( env | ))',
+        '(( env | UNDEFINED_ENV_VAR ))',
         '(( uuid | ))',
     ]
 )
