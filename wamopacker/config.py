@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, unicode_literals
-from yaml import safe_load
+from yaml import safe_load, SafeLoader
 from copy import deepcopy
 import re
 import os
@@ -31,7 +31,17 @@ ENV_VAR_PREFIX = 'WAMOPACKER_'
 log = logging.getLogger('wamopacker.config')
 
 
-__all__ = ['ConfigException', 'ConfigLoadException', 'Config']
+__all__ = ['ConfigException', 'ConfigLoadException', 'ConfigValue', 'Config']
+
+
+# https://stackoverflow.com/questions/2890146/how-to-force-pyyaml-to-load-strings-as-unicode-objects
+
+def construct_yaml_str(self, node):
+    # Override the default string handling function
+    # to always return unicode objects
+    return self.construct_scalar(node)
+
+SafeLoader.add_constructor(u'tag:yaml.org,2002:str', construct_yaml_str)
 
 
 class ConfigException(Exception):
@@ -40,6 +50,124 @@ class ConfigException(Exception):
 
 class ConfigLoadException(ConfigException):
     pass
+
+
+class ConfigValue(object):
+
+    def __init__(self, config, value = None, dynamic = False):
+        self._config = config
+        self._value = value
+        self._dynamic = dynamic
+        self._value_list = []
+
+    def evaluate(self):
+        if self._value:
+            try:
+                self._parse(self._value)
+
+            except ConfigException as e:
+                if not self._dynamic:
+                    raise ConfigException("Failed to parse: line='{}' reason='{}'".format(self._value, e))
+
+                else:
+                    raise
+
+            self._value = None
+
+        out_list = []
+        for value in self._value_list:
+            if isinstance(value, ConfigValue):
+                out_list.append(value.evaluate())
+
+            else:
+                out_list.append(value)
+
+        bracket_value = ''.join(out_list)
+        return self._process(bracket_value) if self._dynamic else bracket_value.strip()
+
+    def _parse(self, value):
+        lookup_start = value.find('((')
+        lookup_end = value.find('))')
+
+        if lookup_start >= 0 > lookup_end:
+            raise ConfigException('Missing end brackets')
+
+        if 0 <= lookup_start < lookup_end:
+            val_before = value[:lookup_start]
+            val_after = value[lookup_start + 2:]
+
+            if val_before and not val_before.isspace():
+                self._value_list.append(val_before)
+
+            if val_after:
+                config_value = ConfigValue(self._config, dynamic = True)
+                self._value_list.append(config_value)
+
+                val_left = config_value._parse(val_after)
+                if val_left and not val_left.isspace():
+                    self._parse(val_left)
+
+        elif lookup_end >= 0:
+            if not self._dynamic:
+                raise ConfigException('Missing start brackets')
+
+            val_before = value[:lookup_end]
+            val_after = value[lookup_end + 2:]
+
+            if val_before and not val_before.isspace():
+                self._value_list.append(val_before)
+
+            return val_after if val_after and not val_after.isspace() else ''
+
+        else:
+            if value and not value.isspace():
+                self._value_list.append(value)
+
+        return ''
+
+    def _process(self, value):
+        value_list = map(lambda val_str: val_str.strip(), value.split('|'))
+        value_list_len = len(value_list)
+        val_new = None
+
+        if value_list_len == 3:
+            val_type, val_name, val_extra = value_list
+
+            if val_type == 'env':
+                try:
+                    val_new = self._get_env_var(val_name)
+
+                except ConfigException:
+                    val_new = val_extra
+
+        if value_list_len == 2:
+            val_type, val_name = value_list
+
+            if val_type == 'env':
+                val_new = self._get_env_var(val_name)
+
+            elif val_type == 'uuid':
+                val_new = self._config.get_uuid(val_name)
+
+        elif value_list_len == 1:
+            val_name = value_list[0]
+
+            if val_name not in self._config:
+                raise ConfigException('Unknown config parameter: {}'.format(val_name))
+
+            val_new = getattr(self._config, val_name)
+
+        if val_new is None:
+            raise ConfigException('Invalid config parameter substitution')
+
+        return val_new
+
+    @staticmethod
+    def _get_env_var(var_name):
+        if var_name in os.environ:
+            return os.environ[var_name]
+
+        raise ConfigException("Environment variable not found: {}".format(var_name))
 
 
 class Config(object):
@@ -67,6 +195,33 @@ class Config(object):
         if var_lookup:
             self._config.update(var_lookup)
 
+    def expand_parameters(self, value):
+        if isinstance(value, basestring):
+            config_value = ConfigValue(self, value)
+            return config_value.evaluate()
+
+        elif isinstance(value, list):
+            out_list = []
+            for item in value:
+                out_list.append(self.expand_parameters(item))
+
+            return out_list
+
+        elif isinstance(value, dict):
+            out_dict = {}
+            for key in value.iterkeys():
+                out_dict[key] = self.expand_parameters(value[key])
+
+            return out_dict
+
+        return value
+
+    def get_uuid(self, name):
+        if not name:
+            raise ConfigException('UUID requires a name')
+
+        return self._uuid_cache.setdefault(name, uuid.uuid4().hex)
+
     def __getattr__(self, item):
         if item in self._config:
             return self.expand_parameters(self._config[item])
@@ -80,6 +235,10 @@ class Config(object):
 
     def __contains__(self, item):
         return item in self._config
+
+    def __delattr__(self, item):
+        if item in self._config:
+            del(self._config[item])
 
     @staticmethod
     def _read_config_file(file_name):
@@ -173,96 +332,6 @@ class Config(object):
                 var_lookup[var_key] = os.environ[var_name]
 
         return var_lookup
-
-    def expand_parameters(self, value):
-        if isinstance(value, basestring):
-            return self._expand_parameter(value)
-
-        elif isinstance(value, list):
-            out_list = []
-            for item in value:
-                out_list.append(self.expand_parameters(item))
-
-            return out_list
-
-        elif isinstance(value, dict):
-            out_dict = {}
-            for key in value.iterkeys():
-                out_dict[key] = self.expand_parameters(value[key])
-
-            return out_dict
-
-        return value
-
-    def _expand_parameter(self, value):
-        while True:
-            match = self._re.match(value)
-            if match:
-                val_before, val_key, val_after = match.groups()
-
-                val_key_list = map(lambda val_str: val_str.strip(), val_key.split('|'))
-                if len(val_key_list) == 3:
-                    # special parameter prefix
-                    val_key_type, val_key_name, val_key_extra = val_key_list
-                    if val_key_type == 'env':
-                        try:
-                            val_new = self._get_env_var(val_key_name)
-
-                        except ConfigException:
-                            val_new = val_key_extra
-
-                    else:
-                        raise ConfigException("Unknown parameter combination: type='{}' extra='{}'".format(val_key_type, val_key_extra))
-
-                elif len(val_key_list) == 2:
-                    # special parameter prefix
-                    val_key_type, val_key_name = val_key_list
-                    if val_key_type == 'env':
-                        val_new = self._get_env_var(val_key_name)
-
-                    elif val_key_type == 'file':
-                        val_new = self._get_file_content(val_key_name)
-
-                    elif val_key_type == 'uuid':
-                        val_new = self._get_uuid(val_key_name)
-
-                    else:
-                        raise ConfigException("Unknown parameter prefix: type='{}'".format(val_key_type))
-
-                else:
-                    # existing parameter
-                    if val_key in self._config:
-                        val_new = self._config[val_key]
-
-                    else:
-                        raise ConfigException("Parameter not found: name='{}'".format(match.group(2)))
-
-                value = '{}{}{}'.format(val_before, val_new, val_after)
-
-            else:
-                break
-
-        return value
-
-    @staticmethod
-    def _get_env_var(var_name):
-        # environment variable
-        if var_name in os.environ:
-            return os.environ[var_name]
-
-        raise ConfigException("Environment variable not found: name='{}'".format(var_name))
-
-    @staticmethod
-    def _get_file_content(file_name):
-        try:
-            with open(file_name, 'r') as file_object:
-                return file_object.read()
-
-        except IOError:
-            raise ConfigException("Error reading file: name='{}'".format(file_name))
-
-    def _get_uuid(self, uuid_key):
-        return self._uuid_cache.setdefault(uuid_key, uuid.uuid4().hex)
 
     def __unicode__(self):
         out_list = self._print_config(self._config)
