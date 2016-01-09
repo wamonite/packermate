@@ -3,6 +3,7 @@
 
 from __future__ import print_function, unicode_literals
 from yaml import safe_load, SafeLoader
+from yaml.scanner import ScannerError
 from copy import deepcopy
 import re
 import os
@@ -265,19 +266,22 @@ class Config(object):
             del(self._config[item])
 
     @staticmethod
-    def _read_config_file(file_name):
+    def _open_config_file(file_name):
         try:
             with open(file_name) as file_object:
                 config = safe_load(file_object)
 
-        except IOError:
-            raise ConfigLoadException("Unable to load config: file_name='{}'".format(file_name))
-
-        if not config:
-            return {}
+        except (IOError, ScannerError):
+            raise ConfigLoadException("Unable to load config: '{}'".format(file_name))
 
         if not isinstance(config, dict):
-            raise ConfigException("Config file should contain a valid YAML dictionary: file_name='{}'".format(file_name))
+            raise ConfigLoadException("Config file should contain a valid YAML dictionary: '{}'".format(file_name))
+
+        return config
+
+    @staticmethod
+    def _read_config_file(file_name):
+        config = Config._open_config_file(file_name)
 
         if 'include' in config:
             del(config['include'])
@@ -288,24 +292,13 @@ class Config(object):
         return config
 
     def _read_config_includes(self, file_name):
-        try:
-            with open(file_name) as file_object:
-                config = safe_load(file_object)
-
-        except IOError:
-            raise ConfigLoadException("Unable to load config: file_name='{}'".format(file_name))
-
-        if not config:
-            return {}
-
-        if not isinstance(config, dict):
-            raise ConfigException("Config file should contain a valid YAML dictionary: file_name='{}'".format(file_name))
+        config = Config._open_config_file(file_name)
 
         config_includes = {}
 
         if 'include' in config:
             if not isinstance(config['include'], list):
-                raise ConfigException("Config file includes should contain a valid YAML list: file_name='{}'".format(file_name))
+                raise ConfigException("Config file includes should contain a valid YAML list: '{}'".format(file_name))
 
             for include_file_name in config['include']:
                 include_file_name_full = self.expand_parameters(include_file_name)
@@ -317,7 +310,7 @@ class Config(object):
 
         if 'include_optional' in config:
             if not isinstance(config['include_optional'], list):
-                raise ConfigException("Config file optional includes should contain a valid YAML list: file_name='{}'".format(file_name))
+                raise ConfigException("Config file optional includes should contain a valid YAML list: '{}'".format(file_name))
 
             for include_file_name in config['include_optional']:
                 include_file_name_full = self.expand_parameters(include_file_name)
@@ -330,7 +323,7 @@ class Config(object):
                 else:
                     config_includes.update(include_data)
 
-                    log.info("Included config file='{}'".format(include_file_name_full))
+                    log.info("Included optional config file='{}'".format(include_file_name_full))
 
         return config_includes
 

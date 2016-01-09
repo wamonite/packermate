@@ -3,9 +3,16 @@
 
 from __future__ import print_function, unicode_literals
 import pytest
-from wamopacker.config import (Config, ConfigValue, ConfigException, CONFIG_DEFAULTS, ENV_VAR_PREFIX)
+from wamopacker.config import (
+    Config, ConfigValue,
+    ConfigException, ConfigLoadException,
+    CONFIG_DEFAULTS, ENV_VAR_PREFIX
+)
 import logging
 import os
+from tempfile import mkdtemp
+from shutil import rmtree
+from yaml import safe_dump
 
 
 log = logging.getLogger('wamopacker.test_config')
@@ -13,6 +20,19 @@ log = logging.getLogger('wamopacker.test_config')
 TEST_VAR_NAME = 'TEST_ENV_VAR'
 TEST_VAR_KEY = ENV_VAR_PREFIX + TEST_VAR_NAME
 TEST_VAR_VALUE = 'meh'
+YAML_CONFIG_FILE_NAME = 'config.yml'
+YAML_LOOKUP_FILE_NAME = 'lookup.yml'
+YAML_FILE_DATA = {
+    YAML_CONFIG_FILE_NAME: {
+        'fizz': 'abc',
+        'buzz': 'def'
+    },
+    YAML_LOOKUP_FILE_NAME: {
+        'abc': 'easy as',
+        'def': '123'
+    }
+}
+MISSING_FILE_NAME = '/file/does/not/exist.yml'
 
 
 @pytest.fixture()
@@ -126,6 +146,59 @@ def config_values_bad(request, config_with_data):
     return ConfigValue(config_with_data, request.param)
 
 
+@pytest.fixture()
+def temp_dir(request):
+    temp_dir_name = mkdtemp(prefix = 'wamopacker_pytest')
+    log.info('created temp dir: {}'.format(temp_dir))
+
+    def remove_temp_dir():
+        if temp_dir_name:
+            log.info('removing temp dir: {}'.format(temp_dir_name))
+            rmtree(temp_dir_name)
+
+    request.addfinalizer(remove_temp_dir)
+
+    return temp_dir_name
+
+
+@pytest.fixture()
+def config_with_files(temp_dir):
+    for file_name, file_data in YAML_FILE_DATA.iteritems():
+        file_name_full = os.path.join(temp_dir, file_name)
+        with open(file_name_full, 'w') as file_object:
+            safe_dump(file_data, file_object)
+
+    os.chdir(temp_dir)
+
+    config_file_name_full = os.path.join(temp_dir, YAML_CONFIG_FILE_NAME)
+    return Config(config_file_name = config_file_name_full)
+
+
+@pytest.fixture(
+    params = (
+        "",
+        "a=b",
+        "foo: bar: bam",
+        """---
+string
+""",
+        """---
+- list
+""",
+        """---
+123
+""",
+    )
+)
+def config_file_name_bad_data(request, temp_dir):
+    file_data = request.param
+    file_name_full = os.path.join(temp_dir, YAML_CONFIG_FILE_NAME)
+    with open(file_name_full, 'w') as file_object:
+        file_object.write(file_data)
+
+    return file_name_full
+
+
 def test_config_contains_defaults(config):
     for key, val in CONFIG_DEFAULTS.iteritems():
         assert config.expand_parameters(val) == getattr(config, key)
@@ -202,3 +275,38 @@ def test_config_env_var_missing_default(config):
     default_val = 'default'
     config_value = ConfigValue(config, '(( env | {} | {} ))'.format(TEST_VAR_KEY, default_val))
     assert config_value.evaluate() == default_val
+
+
+@pytest.mark.files
+def test_config_files(config_with_files):
+    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
+        assert getattr(config_with_files, key) == value
+
+
+@pytest.mark.files
+def test_config_files_lookup(config_with_files):
+    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
+        lookup_key = 'lookup_{}'.format(key)
+        setattr(config_with_files, lookup_key, '(( lookup | {} | (( {} )) ))'.format(YAML_LOOKUP_FILE_NAME, key))
+        assert getattr(config_with_files, lookup_key) == YAML_FILE_DATA[YAML_LOOKUP_FILE_NAME][value]
+
+
+@pytest.mark.files
+def test_config_files_lookup_missing(config_with_files):
+    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
+        lookup_key = 'lookup_{}'.format(key)
+        setattr(config_with_files, lookup_key, '(( lookup | {} | (( {} )) ))'.format(MISSING_FILE_NAME, key))
+        with pytest.raises(ConfigException):
+            getattr(config_with_files, lookup_key)
+
+
+@pytest.mark.files
+def test_config_file_missing():
+    with pytest.raises(ConfigLoadException):
+        Config(config_file_name = MISSING_FILE_NAME)
+
+
+@pytest.mark.files
+def test_config_file_bad_data(config_file_name_bad_data):
+    with pytest.raises(ConfigLoadException):
+        Config(config_file_name = config_file_name_bad_data)
