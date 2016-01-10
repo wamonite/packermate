@@ -35,7 +35,11 @@ setup(
         ]
     },
     install_requires = [],
-    setup_requires = [],
-    tests_require = [],
+    setup_requires = [
+        'pytest-runner',
+    ],
+    tests_require = [
+        'pytest',
+    ],
     zip_safe = False
 )
