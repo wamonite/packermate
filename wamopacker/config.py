@@ -185,6 +185,9 @@ class ConfigValue(object):
         if val_new is None:
             raise ConfigException('Invalid config parameter substitution')
 
+        if not isinstance(val_new, basestring):
+            val_new = '{}'.format(val_new)
+
         return val_new
 
     @staticmethod
