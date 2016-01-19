@@ -316,6 +316,10 @@ class Builder(object):
                     {'name': 'execute_command', 'required': False, 'default': '(( shell_command ))'},
                     {'name': 'environment_vars', 'type': list, 'required': False},
                 ),
+                'shell-local': (
+                    {'name': 'command', 'required': True},
+                    {'name': 'execute_command', 'type': list, 'required': False, 'default': ["/bin/sh", "-c", "{{.Command}}"]},
+                ),
                 'ansible-local': (
                     {'name': 'playbook_file'},
                     {'name': 'playbook_dir', 'required': False},
