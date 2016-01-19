@@ -206,40 +206,23 @@ def config_file_name_bad_data(request, temp_dir):
 
 @pytest.fixture(
     params = (
-        (
-            """---
-a: 1
-b: 2
-"""
-            ,
-            {
-                'a': 1,
-                'b': 2,
-            }
-        ),
-        (
-            """---
-a:
-  - 1
-  - 2
-  - b: 3
-    c: def
-"""
-            ,
-            {
-                'a': [
-                    1,
-                    2,
-                    {
-                        'b': 3,
-                        'c': 'def'
-                    }
-                ],
-            }
-        ),
+        {
+            'a': 1,
+            'b': 2,
+        },
+        {
+            'a': [
+                1,
+                2,
+                {
+                    'b': 3,
+                    'c': 'def'
+                }
+            ],
+        }
     )
 )
-def config_yaml_string_expected(request):
+def config_data(request):
     return request.param
 
 
@@ -363,10 +346,10 @@ def test_config_file_bad_data(config_file_name_bad_data):
         Config(config_file_name = config_file_name_bad_data)
 
 
-def test_config_from_string(config_yaml_string_expected):
-    data, expected = config_yaml_string_expected
-    config = Config(config_string = data)
-    for key, val in expected.iteritems():
+def test_config_from_string(config_data):
+    config_data_string = safe_dump(config_data)
+    config = Config(config_string = config_data_string)
+    for key, val in config_data.iteritems():
         check_expected(getattr(config, key), val)
 
 
