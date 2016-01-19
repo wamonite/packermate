@@ -163,7 +163,7 @@ def config_values_bad(request, config_with_data):
 @pytest.fixture()
 def temp_dir(request):
     temp_dir_name = mkdtemp(prefix = 'wamopacker_pytest')
-    log.info('created temp dir: {}'.format(temp_dir))
+    log.info('created temp dir: {}'.format(temp_dir_name))
 
     current_dir = os.getcwd()
 
