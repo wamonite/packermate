@@ -198,22 +198,66 @@ class ConfigValue(object):
         raise ConfigException("Environment variable not found: {}".format(var_name))
 
 
+class ConfigFileLoader(object):
+
+    def __init__(self, file_name):
+        self._file_name = file_name
+
+    @property
+    def name(self):
+        return self._file_name
+
+    def get_data(self):
+        try:
+            with open(self._file_name) as file_object:
+                config_data = safe_load(file_object)
+
+        except (IOError, ScannerError):
+            raise ConfigLoadException("Unable to load config: '{}'".format(self.name))
+
+        if not isinstance(config_data, dict):
+            raise ConfigLoadException("Config file should contain a valid YAML dictionary: '{}'".format(self.name))
+
+        return config_data
+
+
+class ConfigStringLoader(object):
+
+    def __init__(self, config_string):
+        self._config_string = config_string
+
+    @property
+    def name(self):
+        return '<string>'
+
+    def get_data(self):
+        try:
+            config_data = safe_load(self._config_string)
+
+        except ScannerError:
+            raise ConfigLoadException("Unable to load config: '{}'".format(self.name))
+
+        if not isinstance(config_data, dict):
+            raise ConfigLoadException("Config file should contain a valid YAML dictionary: '{}'".format(self.name))
+
+        return config_data
+
+
 class Config(object):
 
-    def __init__(self, config_file_name = None, override_list = None):
+    def __init__(self, config_file_name = None, config_string = None, override_list = None):
         self._config = deepcopy(CONFIG_DEFAULTS)
         self._re = re.compile('^(.*)\(\(\s*([^\)\s]+)\s*\)\)(.*)$')
         self._uuid_cache = {}
 
-        if config_file_name:
+        if config_file_name is not None:
+            config_loader = ConfigFileLoader(config_file_name)
             self._config[CONFIG_FILE_NAME_KEY] = config_file_name
-            config_file = self._read_config_file(config_file_name)
-            self._config.update(config_file)
+            self._read_config(config_loader, initial_config = True)
 
-            log.info("Loaded config file='{}'".format(config_file_name))
-
-            config_file_includes = self._read_config_includes(config_file_name)
-            self._config.update(config_file_includes)
+        if config_string is not None:
+            config_loader = ConfigStringLoader(config_string)
+            self._read_config(config_loader, initial_config = True)
 
         if isinstance(override_list, list):
             override_lookup = self._parse_overrides(override_list)
@@ -268,67 +312,54 @@ class Config(object):
         if item in self._config:
             del(self._config[item])
 
-    @staticmethod
-    def _open_config_file(file_name):
-        try:
-            with open(file_name) as file_object:
-                config = safe_load(file_object)
+    def _read_config(self, config_loader, initial_config = False):
+        self._read_config_core(config_loader)
 
-        except (IOError, ScannerError):
-            raise ConfigLoadException("Unable to load config: '{}'".format(file_name))
+        if initial_config:
+            log.info("Loaded config: '{}'".format(config_loader.name))
 
-        if not isinstance(config, dict):
-            raise ConfigLoadException("Config file should contain a valid YAML dictionary: '{}'".format(file_name))
+        self._read_config_includes(config_loader)
 
-        return config
+    def _read_config_core(self, config_loader):
+        config_data = config_loader.get_data()
 
-    @staticmethod
-    def _read_config_file(file_name):
-        config = Config._open_config_file(file_name)
+        if 'include' in config_data:
+            del(config_data['include'])
 
-        if 'include' in config:
-            del(config['include'])
+        if 'include_optional' in config_data:
+            del(config_data['include_optional'])
 
-        if 'include_optional' in config:
-            del(config['include_optional'])
+        self._config.update(config_data)
 
-        return config
+    def _read_config_includes(self, config_loader):
+        config_data = config_loader.get_data()
 
-    def _read_config_includes(self, file_name):
-        config = Config._open_config_file(file_name)
+        if 'include' in config_data:
+            if not isinstance(config_data['include'], list):
+                raise ConfigException("Config file includes should contain a valid YAML list: '{}'".format(config_loader.name))
 
-        config_includes = {}
-
-        if 'include' in config:
-            if not isinstance(config['include'], list):
-                raise ConfigException("Config file includes should contain a valid YAML list: '{}'".format(file_name))
-
-            for include_file_name in config['include']:
+            for include_file_name in config_data['include']:
                 include_file_name_full = self.expand_parameters(include_file_name)
-                include_data = self._read_config_file(include_file_name_full)
+                include_config_loader = ConfigFileLoader(include_file_name_full)
+                self._read_config(include_config_loader)
 
-                config_includes.update(include_data)
+                log.info("Included config: '{}'".format(include_file_name_full))
 
-                log.info("Included config file='{}'".format(include_file_name_full))
+        if 'include_optional' in config_data:
+            if not isinstance(config_data['include_optional'], list):
+                raise ConfigException("Config file optional includes should contain a valid YAML list: '{}'".format(config_loader.name))
 
-        if 'include_optional' in config:
-            if not isinstance(config['include_optional'], list):
-                raise ConfigException("Config file optional includes should contain a valid YAML list: '{}'".format(file_name))
-
-            for include_file_name in config['include_optional']:
+            for include_file_name in config_data['include_optional']:
                 include_file_name_full = self.expand_parameters(include_file_name)
                 try:
-                    include_data = self._read_config_file(include_file_name_full)
+                    include_config_loader = ConfigFileLoader(include_file_name_full)
+                    self._read_config(include_config_loader)
 
                 except ConfigLoadException:
-                    log.info("Skipped optional config file='{}'".format(include_file_name_full))
+                    log.info("Skipped optional config: '{}'".format(include_file_name_full))
 
                 else:
-                    config_includes.update(include_data)
-
-                    log.info("Included optional config file='{}'".format(include_file_name_full))
-
-        return config_includes
+                    log.info("Included optional config: '{}'".format(include_file_name_full))
 
     @staticmethod
     def _parse_overrides(override_list):

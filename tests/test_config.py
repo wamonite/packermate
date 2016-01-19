@@ -32,6 +32,20 @@ YAML_FILE_DATA = {
         'def': '123'
     }
 }
+YAML_FILE_BAD_DATA = (
+    "",
+    "a=b",
+    "foo: bar: bam",
+    """---
+string
+""",
+    """---
+- list
+""",
+    """---
+123
+""",
+)
 MISSING_FILE_NAME = '/file/does/not/exist.yml'
 
 
@@ -151,10 +165,14 @@ def temp_dir(request):
     temp_dir_name = mkdtemp(prefix = 'wamopacker_pytest')
     log.info('created temp dir: {}'.format(temp_dir))
 
+    current_dir = os.getcwd()
+
     def remove_temp_dir():
         if temp_dir_name:
             log.info('removing temp dir: {}'.format(temp_dir_name))
             rmtree(temp_dir_name)
+
+        os.chdir(current_dir)
 
     request.addfinalizer(remove_temp_dir)
 
@@ -175,20 +193,7 @@ def config_with_files(temp_dir):
 
 
 @pytest.fixture(
-    params = (
-        "",
-        "a=b",
-        "foo: bar: bam",
-        """---
-string
-""",
-        """---
-- list
-""",
-        """---
-123
-""",
-    )
+    params = YAML_FILE_BAD_DATA
 )
 def config_file_name_bad_data(request, temp_dir):
     file_data = request.param
@@ -197,6 +202,52 @@ def config_file_name_bad_data(request, temp_dir):
         file_object.write(file_data)
 
     return file_name_full
+
+
+@pytest.fixture(
+    params = (
+        (
+            """---
+a: 1
+b: 2
+"""
+            ,
+            {
+                'a': 1,
+                'b': 2,
+            }
+        ),
+        (
+            """---
+a:
+  - 1
+  - 2
+  - b: 3
+    c: def
+"""
+            ,
+            {
+                'a': [
+                    1,
+                    2,
+                    {
+                        'b': 3,
+                        'c': 'def'
+                    }
+                ],
+            }
+        ),
+    )
+)
+def config_yaml_string_expected(request):
+    return request.param
+
+
+@pytest.fixture(
+    params = YAML_FILE_BAD_DATA
+)
+def config_yaml_string_bad(request):
+    return request.param
 
 
 def test_config_contains_defaults(config):
@@ -310,3 +361,28 @@ def test_config_file_missing():
 def test_config_file_bad_data(config_file_name_bad_data):
     with pytest.raises(ConfigLoadException):
         Config(config_file_name = config_file_name_bad_data)
+
+
+def test_config_from_string(config_yaml_string_expected):
+    data, expected = config_yaml_string_expected
+    config = Config(config_string = data)
+    for key, val in expected.iteritems():
+        check_expected(getattr(config, key), val)
+
+
+def check_expected(data, expected):
+    if isinstance(expected, dict):
+        for key, val in expected.iteritems():
+            check_expected(data[key], val)
+
+    elif isinstance(expected, list):
+        for data_val, expected_val in zip(data, expected):
+            check_expected(data_val, expected_val)
+
+    else:
+        assert data == expected
+
+
+def test_config_from_string_bad(config_yaml_string_bad):
+    with pytest.raises(ConfigLoadException):
+        Config(config_string = config_yaml_string_bad)
