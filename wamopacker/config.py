@@ -384,6 +384,9 @@ class Config(object):
 
         return var_lookup
 
+    def __str__(self):
+        return unicode(self).decode('utf-8')
+
     def __unicode__(self):
         out_list = self._print_config(self._config)
 
