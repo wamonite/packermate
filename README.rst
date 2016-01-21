@@ -7,6 +7,9 @@ wamopacker
 .. image:: https://coveralls.io/repos/github/wamonite/wamopacker/badge.svg?branch=master
     :target: https://coveralls.io/github/wamonite/wamopacker?branch=master
 
+.. image:: https://codeclimate.com/github/wamonite/wamopacker/badges/gpa.svg
+   :target: https://codeclimate.com/github/wamonite/wamopacker
+
 Generate and run Packer_ build configurations from a simple YAML definition.
 
 Currently supported features:-
