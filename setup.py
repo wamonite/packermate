@@ -41,7 +41,6 @@ setup(
         'pytest-runner',
     ],
     tests_require = [
-        'pytest',
         'pytest-cov'
     ],
     zip_safe = False
