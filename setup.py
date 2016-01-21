@@ -35,14 +35,13 @@ setup(
         ]
     },
     install_requires = [
-        'pyaml==15.8.2',
+        'pyaml',
     ],
     setup_requires = [
-        'pytest-runner==2.6.2',
+        'pytest-runner',
     ],
     tests_require = [
-        'pytest==2.8.5',
-        'py==1.4.31'
+        'pytest'
     ],
     zip_safe = False
 )
