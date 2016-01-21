@@ -41,7 +41,7 @@ setup(
         'pytest-runner',
     ],
     tests_require = [
-        'pytest',
+        'pytest>=2.7',
     ],
     zip_safe = False
 )
