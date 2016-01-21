@@ -7,6 +7,6 @@ install:
 - pip install .
 - pip install python-coveralls
 script:
-- python setup.py test --addopts \'--cov=wamopacker\'
+- python setup.py test --addopts '--cov=wamopacker'
 after_success:
 - coveralls
