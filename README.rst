@@ -1,6 +1,9 @@
 wamopacker
 ==========
 
+.. image:: https://travis-ci.org/wamonite/wamopacker.svg?branch=master
+    :target: https://travis-ci.org/wamonite/wamopacker
+
 Generate and run Packer_ build configurations from a simple YAML definition.
 
 Currently supported features:-
