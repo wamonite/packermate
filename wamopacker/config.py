@@ -153,10 +153,21 @@ class ConfigValue(object):
                     if not isinstance(lookup, dict):
                         raise ConfigException('Lookup file should be a dictionary: {}'.format(val_name))
 
-                    if val_extra not in lookup:
-                        raise ConfigException("Unable to find value in lookup: file='{}' value={}".format(val_name, val_extra))
+                    val_new = lookup[val_extra] if val_extra in lookup else val_extra
 
-                    val_new = lookup[val_extra]
+            elif val_type == 'lookup_optional':
+                try:
+                    with open(val_name, 'r') as file_object:
+                        lookup = safe_load(file_object)
+
+                except IOError:
+                    val_new = val_extra
+
+                else:
+                    if not isinstance(lookup, dict):
+                        raise ConfigException('Lookup file should be a dictionary: {}'.format(val_name))
+
+                    val_new = lookup[val_extra] if val_extra in lookup else val_extra
 
             elif val_type == 'default':
                 try:
