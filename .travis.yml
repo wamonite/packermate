@@ -3,6 +3,6 @@ language: python
 python:
 - '2.7'
 install:
-- pip uninstall -y pytest py pytest-runner
+- pip uninstall -y pytest py
 - pip install .
 script: python setup.py test
