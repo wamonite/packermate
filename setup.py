@@ -34,7 +34,9 @@ setup(
             'data/templates/*.template'
         ]
     },
-    install_requires = [],
+    install_requires = [
+        'pyaml',
+    ],
     setup_requires = [
         'pytest-runner',
     ],
