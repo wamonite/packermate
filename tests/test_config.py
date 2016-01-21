@@ -122,6 +122,8 @@ def config_values_id_func(fixture_value):
         ('(( default | (( foo )) | bar ))', '123'),
         ('(( default | (( empty )) | bar ))', 'bar'),
         ('(( env | {} ))'.format(TEST_VAR_KEY), TEST_VAR_VALUE),
+        ('(( lookup_optional | {} | foo ))'.format(MISSING_FILE_NAME), 'foo'),
+        ('(( lookup_optional | {} | (( foo )) ))'.format(MISSING_FILE_NAME), '123'),
     ],
     ids = config_values_id_func
 )
@@ -154,6 +156,9 @@ def config_values(request, config_with_data):
         '(( env | ))',
         '(( env | UNDEFINED_ENV_VAR ))',
         '(( uuid | ))',
+        '(( lookup ))',
+        '(( lookup | {} ))'.format(MISSING_FILE_NAME),
+        '(( lookup | {} | test ))'.format(MISSING_FILE_NAME),
     ]
 )
 def config_values_bad(request, config_with_data):
@@ -326,10 +331,10 @@ def test_config_files_lookup(config_with_files):
 
 
 @pytest.mark.files
-def test_config_files_lookup_missing(config_with_files):
+def test_config_files_lookup_error(config_with_files):
     for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
         lookup_key = 'lookup_{}'.format(key)
-        setattr(config_with_files, lookup_key, '(( lookup | {} | (( {} )) ))'.format(MISSING_FILE_NAME, key))
+        setattr(config_with_files, lookup_key, '(( lookup | {} ))'.format(YAML_LOOKUP_FILE_NAME))
         with pytest.raises(ConfigException):
             getattr(config_with_files, lookup_key)
 
