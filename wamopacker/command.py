@@ -11,6 +11,9 @@ import re
 from string import Template
 import json
 import logging
+from datetime import datetime
+import hashlib
+from semantic_version import Version
 
 
 PRESEED_FILE_NAME = 'preseed.cfg'
@@ -78,6 +81,8 @@ class Builder(object):
 
         temp_dir_root = self._config.temp_dir
         with TempDir(temp_dir_root) as temp_dir:
+            self._update_vagrant_version(validate_only = True)
+
             if 'virtualbox' in self._target_list:
                 self._build_virtualbox(packer_config, temp_dir)
 
@@ -89,6 +94,8 @@ class Builder(object):
             self._add_vagrant_export(packer_config)
 
             self._run_packer(packer_config, temp_dir)
+
+            self._update_vagrant_version()
 
     def _load_json(self, name):
         file_name = os.path.join(self._data_path, '{}.json'.format(name))
@@ -305,8 +312,8 @@ class Builder(object):
 
             value_definition_lookup = {
                 'file': (
-                    {'name': 'source' },
-                    {'name': 'destination' },
+                    {'name': 'source'},
+                    {'name': 'destination'},
                     {'name': 'direction', 'required': False},
                 ),
                 'shell': (
@@ -415,10 +422,10 @@ class Builder(object):
     def _run_packer(self, packer_config, temp_dir):
         if self._dump_packer:
             log.info("Dumping Packer configuration to '{}'".format(PACKER_CONFIG_FILE_NAME))
-            self._write_packer_config(packer_config, PACKER_CONFIG_FILE_NAME)
+            self._write_json_file(packer_config, PACKER_CONFIG_FILE_NAME)
 
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
-        self._write_packer_config(packer_config, packer_config_file_name)
+        self._write_json_file(packer_config, packer_config_file_name)
 
         try:
             log.info('Validating Packer configuration')
@@ -435,7 +442,121 @@ class Builder(object):
             except (ProcessException, OSError) as e:
                 raise BuilderException('Failed to build Packer configuration: {}'.format(e))
 
+    def _update_vagrant_version(self, validate_only = False):
+        if self._dry_run:
+            return
+
+        if self._config.vagrant_version_prefix is None:
+            return
+
+        if self._config.vm_version is None:
+            log.info('Unable to update Vagrant version file as vm_version parameter not set.')
+            return
+
+        if self._config.vagrant_output is not None:
+            match = re.search('^(.+)\{\{\s*\.Provider\s*\}\}(.+)$', self._config.vagrant_output)
+            if match:
+                file_format_name = match.group(1) + '{}' + match.group(2)
+
+                self._update_vagrant_version_file(self._config.vagrant_version_prefix, file_format_name, validate_only)
+
+    def _update_vagrant_version_file(self, file_prefix, file_format_name, validate_only):
+        version_file_name = file_prefix + '.json'
+
+        log.info('{} Vagrant version file: {}'.format(
+            'Validating' if validate_only else 'Updating',
+            version_file_name
+        ))
+
+        # get or create the version file
+        if os.path.exists(version_file_name):
+            try:
+                with open(version_file_name, 'rb') as file_object:
+                    file_content = json.load(file_object)
+
+            except ValueError:
+                raise BuilderException('Unable to update Vagrant version file: {}'.format(version_file_name))
+
+        else:
+            file_content = {
+                'name': self._config.vm_name,
+                'versions': []
+            }
+
+        # get or create the version info
+        try:
+            vm_version_val = Version(self._config.vm_version)
+
+        except ValueError:
+            raise BuilderException('Failed to parse semantic version from vm_version: {}'.format(self._config.vm_version))
+
+        # build a lookup of active versions
+        version_info_lookup = {}
+        for version_info in file_content['versions']:
+            if version_info['status'] == 'active':
+                try:
+                    version_val = Version(version_info['version'])
+                    version_info_lookup[version_val] = version_info
+
+                except ValueError:
+                    raise BuilderException('Failed to parse semantic version: {}'.format(version_info['version']))
+
+        # if current version is a development build, check that a higher non-development version exists
+        if version_info_lookup and vm_version_val.patch == 0:
+            version_latest = sorted(version_info_lookup.keys(), reverse = True)[0]
+            if vm_version_val > version_latest:
+                raise BuilderException('Cannot build a development image if there is no higher version present. {} > {}'.format(vm_version_val, version_latest))
+
+        # stop here when validating
+        if validate_only:
+            return
+
+        version_info_current = version_info_lookup.setdefault(vm_version_val, {})
+
+        # populate the version info
+        time_now = datetime.utcnow()
+        time_str = time_now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
+        version_info_current['version'] = self._config.vm_version
+        version_info_current['status'] = 'active'
+        version_info_current['updated_at'] = time_str
+        if 'created_at' not in version_info_current:
+            version_info_current['created_at'] = time_str
+        version_info_current['providers'] = []
+
+        for target in self._target_list:
+            box_file_name = file_format_name.format(target)
+            box_file_name_full = os.path.abspath(box_file_name)
+            provider_info = {
+                'name': target,
+                'url': 'file:///{}'.format(box_file_name_full),
+                'checksum_type': 'md5',
+                'checksum': self._get_md5_sum(box_file_name_full)
+            }
+
+            version_info_current['providers'].append(provider_info)
+
+        file_content['versions'] = []
+        for version_info_key in sorted(version_info_lookup.keys()):
+            file_content['versions'].append(version_info_lookup[version_info_key])
+
+        self._write_json_file(file_content, version_file_name)
+
     @staticmethod
-    def _write_packer_config(packer_config, file_name):
+    def _get_md5_sum(file_name):
+        md5 = hashlib.md5()
+        with open(file_name, 'rb') as file_object:
+            while True:
+                data = file_object.read(1024 * 1024)
+                if len(data) > 0:
+                    md5.update(data)
+
+                else:
+                    break
+
+        return md5.hexdigest()
+
+    @staticmethod
+    def _write_json_file(json_object, file_name):
         with open(file_name, 'w') as file_object:
-            dump(packer_config, file_object, indent = 4, sort_keys = True)
+            dump(json_object, file_object, indent = 4, sort_keys = True)

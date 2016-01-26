@@ -78,11 +78,12 @@ def config_with_override_list(no_env_var):
 
 @pytest.fixture()
 def config_with_data(env_var):
-    conf = Config()
-    conf.foo = '123'
-    conf.bar = '456'
-    conf.empty = ''
-    return conf
+    config_str = """---
+foo: 123
+bar: '456'
+empty: ''
+"""
+    return Config(config_string = config_str)
 
 
 def config_values_id_func(fixture_value):
