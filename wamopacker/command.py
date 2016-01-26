@@ -14,6 +14,8 @@ import logging
 from datetime import datetime
 import hashlib
 from semantic_version import Version
+import subprocess
+import shlex
 
 
 PRESEED_FILE_NAME = 'preseed.cfg'
@@ -526,12 +528,20 @@ class Builder(object):
 
         for target in self._target_list:
             box_file_name = file_format_name.format(target)
-            box_file_name_full = os.path.abspath(box_file_name)
+
+            if self._config.vagrant_copy_url_prefix:
+                box_file_url = self._config.vagrant_copy_url_prefix + os.path.basename(box_file_name)
+
+            else:
+                box_file_url = 'file://{}'.format(os.path.abspath(box_file_name))
+
+            self._copy_vagrant_files(box_file_name)
+
             provider_info = {
                 'name': target,
-                'url': 'file:///{}'.format(box_file_name_full),
+                'url': box_file_url,
                 'checksum_type': 'md5',
-                'checksum': self._get_md5_sum(box_file_name_full)
+                'checksum': self._get_md5_sum(box_file_name)
             }
 
             version_info_current['providers'].append(provider_info)
@@ -541,6 +551,29 @@ class Builder(object):
             file_content['versions'].append(version_info_lookup[version_info_key])
 
         self._write_json_file(file_content, version_file_name)
+
+        self._copy_vagrant_files(version_file_name)
+
+    def _copy_vagrant_files(self, file_name):
+        if 'vagrant_copy_command' not in self._config:
+            return
+
+        tmp_path = self._config.FILE_PATH
+        tmp_name = self._config.FILE_NAME
+
+        self._config.FILE_PATH = file_name
+        self._config.FILE_NAME = os.path.basename(file_name)
+        copy_cmd = self._config.vagrant_copy_command
+
+        try:
+            log.info('Executing copy command: {}'.format(copy_cmd))
+            subprocess.check_call(shlex.split(copy_cmd))
+
+        except subprocess.CalledProcessError:
+            log.error('Failed to execute copy command: {}'.format(copy_cmd))
+
+        self._config.FILE_PATH = tmp_path
+        self._config.FILE_NAME = tmp_name
 
     @staticmethod
     def _get_md5_sum(file_name):

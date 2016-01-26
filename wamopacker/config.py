@@ -314,7 +314,12 @@ class Config(object):
             super(Config, self).__setattr__(item, value)
 
         else:
-            self._config[item] = value
+            if value is None:
+                if item in self._config:
+                    del self._config[item]
+
+            else:
+                self._config[item] = value
 
     def __contains__(self, item):
         return item in self._config
