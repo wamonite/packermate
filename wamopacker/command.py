@@ -14,8 +14,6 @@ import logging
 from datetime import datetime
 import hashlib
 from semantic_version import Version
-import subprocess
-import shlex
 
 
 PRESEED_FILE_NAME = 'preseed.cfg'
@@ -61,6 +59,7 @@ class Builder(object):
         self._target_list = target_list
         self._dry_run = dry_run
         self._dump_packer = dump_packer
+        self._box_lookup = None
 
         self._data_path = self._get_data_path()
 
@@ -128,7 +127,10 @@ class Builder(object):
         else:
             log.info('Bulding VirtualBox OVF configuration')
 
-            if self._config.virtualbox_vagrant_box_name and self._config.virtualbox_vagrant_box_version:
+            if self._config.virtualbox_vagrant_box_url and self._config.virtualbox_vagrant_box_name:
+                self._build_virtualbox_vagrant_box_url()
+
+            if self._config.virtualbox_vagrant_box_name:
                 self._build_virtualbox_vagrant_box(temp_dir)
 
             if self._config.virtualbox_vagrant_box_file:
@@ -186,6 +188,52 @@ class Builder(object):
         with open(preseed_file_name, 'w') as file_object:
             file_object.write(preseed_text)
 
+    def _get_installed_vagrant_box_version(self, search_name, search_provider):
+        if self._box_lookup is None:
+            box_lines = run_command('vagrant box list')
+
+            self._box_lookup = {}
+            for box_line in box_lines:
+                match = re.search('^([^\s]+)\s+\(([^,]+),\s+([^\)]+)\)', box_line)
+                if match:
+                    installed_name, installed_provider, installed_version_str = match.groups()
+
+                    try:
+                        installed_version = Version(installed_version_str)
+
+                    except ValueError:
+                        installed_version = None
+
+                    provider_lookup = self._box_lookup.setdefault(installed_name, {})
+                    version_current = provider_lookup.get(installed_provider)
+                    if version_current is None or version_current < installed_version:
+                        provider_lookup[installed_provider] = installed_version
+
+        box_info = self._box_lookup.get(search_name, {})
+        if search_provider not in box_info:
+            raise BuilderException('Unable to find installed Vagrant box: {} {}'.format(
+                search_provider,
+                self._config.virtualbox_vagrant_box_name
+            ))
+
+        return box_info.get(search_provider) or 0
+
+    def _build_virtualbox_vagrant_box_url(self):
+        log.info('Installing VirtualBox Vagrant box')
+
+        try:
+            # throws exception if not installed
+            self._get_installed_vagrant_box_version(self._config.virtualbox_vagrant_box_name, 'virtualbox')
+            return
+
+        except BuilderException:
+            pass
+
+        box_add_command = 'vagrant box add --provider virtualbox {}'.format(self._config.virtualbox_vagrant_box_url)
+        run_command(box_add_command)
+
+        self._box_lookup = None
+
     def _build_virtualbox_ovf_file(self, packer_config, temp_dir):
         packer_virtualbox_ovf = self._load_json('packer_virtualbox_ovf')
 
@@ -212,9 +260,11 @@ class Builder(object):
     def _build_virtualbox_vagrant_box(self, temp_dir):
         log.info('Extracting installed VirtualBox Vagrant box')
 
+        box_version = self._get_installed_vagrant_box_version(self._config.virtualbox_vagrant_box_name, 'virtualbox')
+
         extract_command = "vagrant box repackage '{}' virtualbox '{}'".format(
             self._config.virtualbox_vagrant_box_name,
-            self._config.virtualbox_vagrant_box_version
+            box_version
         )
         run_command(extract_command, working_dir = temp_dir.path)
 
@@ -223,7 +273,10 @@ class Builder(object):
     def _build_aws(self, packer_config, temp_dir):
         log.info('Building AWS configuration')
 
-        if self._config.aws_vagrant_box_name and self._config.aws_vagrant_box_version:
+        if self._config.aws_vagrant_box_url and self._config.aws_vagrant_box_name:
+            self._build_aws_vagrant_box_url()
+
+        if self._config.aws_vagrant_box_name:
             self._build_aws_vagrant_box(temp_dir)
 
         if self._config.aws_vagrant_box_file:
@@ -275,6 +328,22 @@ class Builder(object):
 
         packer_config['builders'].append(packer_amazon_ebs)
 
+    def _build_aws_vagrant_box_url(self):
+        log.info('Installing AWS Vagrant box')
+
+        try:
+            # throws exception if not installed
+            self._get_installed_vagrant_box_version(self._config.aws_vagrant_box_name, 'aws')
+            return
+
+        except BuilderException:
+            pass
+
+        box_add_command = 'vagrant box add --provider aws {}'.format(self._config.aws_vagrant_box_url)
+        run_command(box_add_command)
+
+        self._box_lookup = None
+
     def _build_aws_vagrant_box_file(self, packer_config, temp_dir):
         log.info('Extracting AWS AMI id from Vagrant box')
 
@@ -299,9 +368,11 @@ class Builder(object):
     def _build_aws_vagrant_box(self, temp_dir):
         log.info('Extracting installed AWS Vagrant box')
 
+        box_version = self._get_installed_vagrant_box_version(self._config.aws_vagrant_box_name, 'aws')
+
         extract_command = "vagrant box repackage '{}' aws '{}'".format(
             self._config.aws_vagrant_box_name,
-            self._config.aws_vagrant_box_version
+            box_version
         )
         run_command(extract_command, working_dir = temp_dir.path)
 
@@ -565,12 +636,8 @@ class Builder(object):
         self._config.FILE_NAME = os.path.basename(file_name)
         copy_cmd = self._config.vagrant_copy_command
 
-        try:
-            log.info('Executing copy command: {}'.format(copy_cmd))
-            subprocess.check_call(shlex.split(copy_cmd))
-
-        except subprocess.CalledProcessError:
-            log.error('Failed to execute copy command: {}'.format(copy_cmd))
+        log.info('Executing copy command: {}'.format(copy_cmd))
+        run_command(copy_cmd)
 
         self._config.FILE_PATH = tmp_path
         self._config.FILE_NAME = tmp_name
