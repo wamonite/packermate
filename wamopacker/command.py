@@ -201,7 +201,7 @@ class Builder(object):
         os.mkdir(packer_http_path)
 
         # generate the preseed text
-        preseed_template = self._data_dir.get_template_file(PRESEED_FILE_NAME)
+        preseed_template = self._data_dir.read_template(PRESEED_FILE_NAME)
         preseed_text = preseed_template.substitute(
             user_account = virtualbox_config['ssh_username'],
             user_password = virtualbox_config['ssh_password']
