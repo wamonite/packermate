@@ -48,6 +48,45 @@ class TempDir(object):
             self.path = None
 
 
+class DataDir(object):
+
+    def __init__(self):
+        self._data_path = os.path.join(os.path.dirname(__file__), 'data')
+
+    def read_template(self, file_name):
+        template_path = os.path.join(self._data_path, 'templates')
+        template_file_name = os.path.join(template_path, '{}.template'.format(file_name))
+        with open(template_file_name, 'rb') as file_object:
+            return Template(file_object.read())
+
+    def read_json(self, file_name):
+        file_name = os.path.join(self._data_path, '{}.json'.format(file_name))
+        with open(file_name, 'r') as file_object:
+            return load(file_object)
+
+
+class FileUtils(object):
+
+    @staticmethod
+    def get_md5_sum(file_name):
+        md5 = hashlib.md5()
+        with open(file_name, 'rb') as file_object:
+            while True:
+                data = file_object.read(1024 * 1024)
+                if len(data) > 0:
+                    md5.update(data)
+
+                else:
+                    break
+
+        return md5.hexdigest()
+
+    @staticmethod
+    def write_json_file(json_object, file_name):
+        with open(file_name, 'w') as file_object:
+            dump(json_object, file_object, indent = 4, sort_keys = True)
+
+
 class BuilderException(Exception):
     pass
 
@@ -61,17 +100,7 @@ class Builder(object):
         self._dump_packer = dump_packer
         self._box_lookup = None
 
-        self._data_path = self._get_data_path()
-
-    @staticmethod
-    def _get_data_path():
-        return os.path.join(os.path.dirname(__file__), 'data')
-
-    def _get_template(self, file_name):
-        template_path = os.path.join(self._data_path, 'templates')
-        template_file_name = os.path.join(template_path, '{}.template'.format(file_name))
-        with open(template_file_name, 'rb') as file_object:
-            return Template(file_object.read())
+        self._data_dir = DataDir()
 
     def build(self):
         packer_config = {
@@ -98,17 +127,12 @@ class Builder(object):
 
             self._update_vagrant_version()
 
-    def _load_json(self, name):
-        file_name = os.path.join(self._data_path, '{}.json'.format(name))
-        with open(file_name, 'r') as file_object:
-            return load(file_object)
-
     def _parse_parameters(self, config_key_list, output_lookup):
         for config_item in config_key_list:
             config_key, output_key, output_type = map(
-                    lambda default, val: val if val is not None else default,
-                    (None, None, basestring),
-                    config_item
+                lambda default, val: val if val is not None else default,
+                (None, None, basestring),
+                config_item
             )
             if config_key in self._config:
                 val = getattr(self._config, config_key)
@@ -140,7 +164,7 @@ class Builder(object):
                 self._build_virtualbox_ovf_file(packer_config, temp_dir)
 
     def _build_virtualbox_iso(self, packer_config, temp_dir):
-        packer_virtualbox_iso = self._load_json('packer_virtualbox_iso')
+        packer_virtualbox_iso = self._data_dir.read_json('packer_virtualbox_iso')
 
         config_key_list = (
             ('virtualbox_ovf_output', 'vm_name'),
@@ -177,7 +201,7 @@ class Builder(object):
         os.mkdir(packer_http_path)
 
         # generate the preseed text
-        preseed_template = self._get_template(PRESEED_FILE_NAME)
+        preseed_template = self._data_dir.get_template_file(PRESEED_FILE_NAME)
         preseed_text = preseed_template.substitute(
             user_account = virtualbox_config['ssh_username'],
             user_password = virtualbox_config['ssh_password']
@@ -235,7 +259,7 @@ class Builder(object):
         self._box_lookup = None
 
     def _build_virtualbox_ovf_file(self, packer_config, temp_dir):
-        packer_virtualbox_ovf = self._load_json('packer_virtualbox_ovf')
+        packer_virtualbox_ovf = self._data_dir.read_json('packer_virtualbox_ovf')
 
         config_key_list = (
             ('virtualbox_ovf_output', 'vm_name'),
@@ -495,10 +519,10 @@ class Builder(object):
     def _run_packer(self, packer_config, temp_dir):
         if self._dump_packer:
             log.info("Dumping Packer configuration to '{}'".format(PACKER_CONFIG_FILE_NAME))
-            self._write_json_file(packer_config, PACKER_CONFIG_FILE_NAME)
+            FileUtils.write_json_file(packer_config, PACKER_CONFIG_FILE_NAME)
 
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
-        self._write_json_file(packer_config, packer_config_file_name)
+        FileUtils.write_json_file(packer_config, packer_config_file_name)
 
         try:
             log.info('Validating Packer configuration')
@@ -523,7 +547,7 @@ class Builder(object):
             return
 
         if self._config.vm_version is None:
-            log.info('Unable to update Vagrant version file as vm_version parameter not set.')
+            log.info('Unable to modify Vagrant version file as vm_version parameter not set.')
             return
 
         if self._config.vagrant_output is not None:
@@ -612,7 +636,7 @@ class Builder(object):
                 'name': target,
                 'url': box_file_url,
                 'checksum_type': 'md5',
-                'checksum': self._get_md5_sum(box_file_name)
+                'checksum': FileUtils.get_md5_sum(box_file_name)
             }
 
             version_info_current['providers'].append(provider_info)
@@ -621,7 +645,7 @@ class Builder(object):
         for version_info_key in sorted(version_info_lookup.keys()):
             file_content['versions'].append(version_info_lookup[version_info_key])
 
-        self._write_json_file(file_content, version_file_name)
+        FileUtils.write_json_file(file_content, version_file_name)
 
         self._copy_vagrant_files(version_file_name)
 
@@ -641,22 +665,3 @@ class Builder(object):
 
         self._config.FILE_PATH = tmp_path
         self._config.FILE_NAME = tmp_name
-
-    @staticmethod
-    def _get_md5_sum(file_name):
-        md5 = hashlib.md5()
-        with open(file_name, 'rb') as file_object:
-            while True:
-                data = file_object.read(1024 * 1024)
-                if len(data) > 0:
-                    md5.update(data)
-
-                else:
-                    break
-
-        return md5.hexdigest()
-
-    @staticmethod
-    def _write_json_file(json_object, file_name):
-        with open(file_name, 'w') as file_object:
-            dump(json_object, file_object, indent = 4, sort_keys = True)

@@ -252,6 +252,71 @@ class ConfigStringLoader(object):
         return config_data
 
 
+class ConfigDumper(object):
+
+    @classmethod
+    def dump(cls, config):
+        out_list = cls._dump_config(config)
+
+        line_list = []
+        for out_line in out_list:
+            indent_list, out_val = out_line
+            line_list.append('{}{}'.format(''.join(indent_list), out_val))
+
+        return '\n'.join(line_list)
+
+    @classmethod
+    def _dump_config(cls, entry, indent = 0):
+        out_list = []
+
+        if isinstance(entry, dict):
+            for key in sorted(entry.keys()):
+                val = entry[key]
+
+                key_indent = cls._get_indent(indent)
+                key_text = '{}:'.format(key)
+
+                val_list = cls._dump_config(val, indent + 1)
+                if len(val_list) == 1:
+                    val_text = val_list[0][1]
+                    out_list.append((key_indent, '{} {}'.format(key_text, val_text)))
+
+                else:
+                    out_list.append((key_indent, key_text))
+                    for val_list_pair in val_list:
+                        out_list.append(val_list_pair)
+
+        elif isinstance(entry, list):
+            for val in entry:
+                val_list = cls._dump_config(val, 0)
+                for index, val_list_line in enumerate(val_list):
+                    val_indent, val_text = val_list_line
+                    val_indent = cls._get_indent(indent, is_list = index == 0, extend_with = val_indent)
+                    out_list.append((val_indent, val_text))
+
+        else:
+            val_indent = cls._get_indent(indent)
+            val_text = '{}'.format(entry)
+
+            out_list.append((val_indent, val_text))
+
+        return out_list
+
+    @staticmethod
+    def _get_indent(indent, is_list = False, extend_with = None):
+        if is_list:
+            indent_list = (indent - 1 if indent > 1 else 0) * ['    ']
+            indent_list.append('  - ')
+
+        else:
+            indent_list = indent * ['    ']
+
+        if extend_with:
+            indent_list.extend(extend_with)
+
+        return indent_list
+
+
 class Config(object):
 
     def __init__(self, config_file_name = None, config_string = None, override_list = None):
@@ -402,61 +467,10 @@ class Config(object):
         return unicode(self).decode('utf-8')
 
     def __unicode__(self):
-        out_list = self._print_config(self._config)
+        return ConfigDumper.dump(self._config)
 
-        line_list = []
-        for out_line in out_list:
-            indent_list, out_val = out_line
-            line_list.append('{}{}'.format(''.join(indent_list), out_val))
-
-        return '\n'.join(line_list)
-
-    def _print_config(self, entry, indent = 0):
-        out_list = []
-
-        if isinstance(entry, dict):
-            for key in sorted(entry.keys()):
-                val = entry[key]
-
-                key_indent = self._get_indent(indent)
-                key_text = '{}:'.format(key)
-
-                val_list = self._print_config(val, indent + 1)
-                if len(val_list) == 1:
-                    val_text = val_list[0][1]
-                    out_list.append((key_indent, '{} {}'.format(key_text, val_text)))
-
-                else:
-                    out_list.append((key_indent, key_text))
-                    for val_list_pair in val_list:
-                        out_list.append(val_list_pair)
-
-        elif isinstance(entry, list):
-            for val in entry:
-                val_list = self._print_config(val, 0)
-                for index, val_list_line in enumerate(val_list):
-                    val_indent, val_text = val_list_line
-                    val_indent = self._get_indent(indent, is_list = index == 0, extend_with = val_indent)
-                    out_list.append((val_indent, val_text))
-
-        else:
-            val_indent = self._get_indent(indent)
-            val_text = '{}'.format(entry)
-
-            out_list.append((val_indent, val_text))
-
-        return out_list
-
-    @staticmethod
-    def _get_indent(indent, is_list = False, extend_with = None):
-        if is_list:
-            indent_list = (indent - 1 if indent > 1 else 0) * ['    ']
-            indent_list.append('  - ')
-
-        else:
-            indent_list = indent * ['    ']
-
-        if extend_with:
-            indent_list.extend(extend_with)
-
-        return indent_list
+    def __repr__(self):
+        return "{}[\n{}\n]".format(
+            self.__class__.__name__,
+            str(self)
+        )
