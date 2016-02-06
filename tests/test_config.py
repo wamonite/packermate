@@ -32,7 +32,7 @@ YAML_FILE_DATA = {
         'def': '123'
     }
 }
-YAML_FILE_BAD_DATA = (
+YAML_BAD_STRING_LIST = (
     "",
     "a=b",
     "foo: bar: bam",
@@ -49,35 +49,39 @@ string
 MISSING_FILE_NAME = '/file/does/not/exist.yml'
 
 
+# Config default fixtures
+
 @pytest.fixture()
-def no_env_var():
+def no_env_vars():
     if TEST_VAR_KEY in os.environ:
         del(os.environ[TEST_VAR_KEY])
 
 
 @pytest.fixture()
-def env_var():
+def with_env_vars():
     os.environ[TEST_VAR_KEY] = TEST_VAR_VALUE
 
 
 @pytest.fixture()
-def config(no_env_var):
+def config_no_env_vars(no_env_vars):
     return Config()
 
 
 @pytest.fixture()
-def config_with_env(env_var):
+def config_with_env_vars(with_env_vars):
     return Config()
 
 
 @pytest.fixture()
-def config_with_override_list(no_env_var):
+def config_with_override_list(no_env_vars):
     override_list = ['{}={}'.format(TEST_VAR_NAME, TEST_VAR_VALUE)]
     return Config(override_list = override_list)
 
 
+# ConfigValue
+
 @pytest.fixture()
-def config_with_data(env_var):
+def config_value_config(with_env_vars):
     config_str = """---
 foo: 123
 bar: '456'
@@ -86,12 +90,13 @@ empty: ''
     return Config(config_string = config_str)
 
 
-def config_values_id_func(fixture_value):
+def config_values_ids(fixture_value):
     return "'{}' == '{}'".format(*fixture_value)
 
 
-@pytest.fixture(
-    params = [
+@pytest.mark.parametrize(
+    'config_val_str,expected',
+    (
         ('', ''),
         (' ', ''),
         ('  ', ''),
@@ -125,17 +130,17 @@ def config_values_id_func(fixture_value):
         ('(( env | {} ))'.format(TEST_VAR_KEY), TEST_VAR_VALUE),
         ('(( lookup_optional | {} | foo ))'.format(MISSING_FILE_NAME), 'foo'),
         ('(( lookup_optional | {} | (( foo )) ))'.format(MISSING_FILE_NAME), '123'),
-    ],
-    ids = config_values_id_func
+    ),
+    ids = config_values_ids
 )
-def config_values(request, config_with_data):
-    value, expected = request.param
-    config_value = ConfigValue(config_with_data, value)
-    return config_value, expected
+def test_config_values(config_value_config, config_val_str, expected):
+    config_value = ConfigValue(config_value_config, config_val_str)
+    assert config_value.evaluate() == expected
 
 
-@pytest.fixture(
-    params = [
+@pytest.mark.parametrize(
+    'config_val_str',
+    (
         '((',
         ' ((',
         '  ((',
@@ -160,11 +165,96 @@ def config_values(request, config_with_data):
         '(( lookup ))',
         '(( lookup | {} ))'.format(MISSING_FILE_NAME),
         '(( lookup | {} | test ))'.format(MISSING_FILE_NAME),
-    ]
+    )
 )
-def config_values_bad(request, config_with_data):
-    return ConfigValue(config_with_data, request.param)
+def test_config_values_bad(config_value_config, config_val_str):
+    config_value = ConfigValue(config_value_config, config_val_str)
+    with pytest.raises(ConfigException):
+        config_value.evaluate()
 
+
+# Config attributes and lookups
+
+def test_config_contains_defaults(config_no_env_vars):
+    for key, val in CONFIG_DEFAULTS.iteritems():
+        assert config_no_env_vars.expand_parameters(val) == getattr(config_no_env_vars, key)
+
+
+def test_config_reads_env_vars(config_no_env_vars, config_with_env_vars):
+    assert TEST_VAR_NAME not in config_no_env_vars
+
+    assert getattr(config_with_env_vars, TEST_VAR_NAME) == TEST_VAR_VALUE
+    assert TEST_VAR_NAME in config_with_env_vars
+
+
+def test_config_reads_override_list(config_no_env_vars, config_with_override_list):
+    assert TEST_VAR_NAME not in config_no_env_vars
+
+    assert getattr(config_with_override_list, TEST_VAR_NAME) == TEST_VAR_VALUE
+    assert TEST_VAR_NAME in config_with_override_list
+
+
+def test_config_can_set_attribute(config_no_env_vars):
+    key, val = 'foo', 'bar'
+    assert key not in config_no_env_vars
+    setattr(config_no_env_vars, key, val)
+    assert key in config_no_env_vars
+    assert getattr(config_no_env_vars, key) == val
+
+
+def test_config_can_delete_attribute(config_no_env_vars):
+    key, val = 'foo', 'bar'
+    setattr(config_no_env_vars, key, val)
+    assert key in config_no_env_vars
+    assert getattr(config_no_env_vars, key) == val
+    delattr(config_no_env_vars, key)
+    assert key not in config_no_env_vars
+
+
+def test_config_set_none_deletes_attribute(config_no_env_vars):
+    key, val = 'foo', 'bar'
+    setattr(config_no_env_vars, key, val)
+    assert key in config_no_env_vars
+    assert getattr(config_no_env_vars, key) == val
+    setattr(config_no_env_vars, key, None)
+    assert key not in config_no_env_vars
+
+
+def test_config_uuid(config_no_env_vars):
+    config_value_a1 = ConfigValue(config_no_env_vars, '(( uuid | a ))')
+    config_value_a2 = ConfigValue(config_no_env_vars, '(( uuid |  a  ))')
+    config_value_b = ConfigValue(config_no_env_vars, '(( uuid | b ))')
+
+    assert config_value_a1.evaluate()
+    assert config_value_b.evaluate()
+    assert config_value_a1.evaluate() == config_value_a2.evaluate()
+    assert config_value_a1.evaluate() != config_value_b.evaluate()
+
+
+def test_config_env_var(config_with_env_vars):
+    config_value = ConfigValue(config_with_env_vars, '(( env | {} ))'.format(TEST_VAR_KEY))
+    assert config_value.evaluate() == TEST_VAR_VALUE
+
+
+def test_config_env_var_missing(config_no_env_vars):
+    config_value = ConfigValue(config_no_env_vars, '(( env | {} ))'.format(TEST_VAR_KEY))
+    with pytest.raises(ConfigException):
+        config_value.evaluate()
+
+
+def test_config_env_var_default(config_with_env_vars):
+    default_val = 'default'
+    config_value = ConfigValue(config_with_env_vars, '(( env | {} | {} ))'.format(TEST_VAR_KEY, default_val))
+    assert config_value.evaluate() == TEST_VAR_VALUE
+
+
+def test_config_env_var_missing_default(config_no_env_vars):
+    default_val = 'default'
+    config_value = ConfigValue(config_no_env_vars, '(( env | {} | {} ))'.format(TEST_VAR_KEY, default_val))
+    assert config_value.evaluate() == default_val
+
+
+# Config from file
 
 @pytest.fixture()
 def temp_dir(request):
@@ -198,10 +288,35 @@ def config_with_files(temp_dir):
     return Config(config_file_name = config_file_name_full)
 
 
+def test_config_files(config_with_files):
+    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
+        assert getattr(config_with_files, key) == value
+
+
+def test_config_files_lookup(config_with_files):
+    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
+        lookup_key = 'lookup_{}'.format(key)
+        setattr(config_with_files, lookup_key, '(( lookup | {} | (( {} )) ))'.format(YAML_LOOKUP_FILE_NAME, key))
+        assert getattr(config_with_files, lookup_key) == YAML_FILE_DATA[YAML_LOOKUP_FILE_NAME][value]
+
+
+def test_config_files_lookup_error(config_with_files):
+    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
+        lookup_key = 'lookup_{}'.format(key)
+        setattr(config_with_files, lookup_key, '(( lookup | {} ))'.format(YAML_LOOKUP_FILE_NAME))
+        with pytest.raises(ConfigException):
+            getattr(config_with_files, lookup_key)
+
+
+def test_config_file_missing():
+    with pytest.raises(ConfigLoadException):
+        Config(config_file_name = MISSING_FILE_NAME)
+
+
 @pytest.fixture(
-    params = YAML_FILE_BAD_DATA
+    params = YAML_BAD_STRING_LIST
 )
-def config_file_name_bad_data(request, temp_dir):
+def yaml_file_with_bad_data(request, temp_dir):
     file_data = request.param
     file_name_full = os.path.join(temp_dir, YAML_CONFIG_FILE_NAME)
     with open(file_name_full, 'w') as file_object:
@@ -210,8 +325,16 @@ def config_file_name_bad_data(request, temp_dir):
     return file_name_full
 
 
-@pytest.fixture(
-    params = (
+def test_config_file_bad_data(yaml_file_with_bad_data):
+    with pytest.raises(ConfigLoadException):
+        Config(config_file_name = yaml_file_with_bad_data)
+
+
+# Config from string
+
+@pytest.mark.parametrize(
+    'config_data',
+    (
         {
             'a': 1,
             'b': 2,
@@ -225,133 +348,9 @@ def config_file_name_bad_data(request, temp_dir):
                     'c': 'def'
                 }
             ],
-        }
+        },
     )
 )
-def config_data(request):
-    return request.param
-
-
-@pytest.fixture(
-    params = YAML_FILE_BAD_DATA
-)
-def config_yaml_string_bad(request):
-    return request.param
-
-
-def test_config_contains_defaults(config):
-    for key, val in CONFIG_DEFAULTS.iteritems():
-        assert config.expand_parameters(val) == getattr(config, key)
-
-
-def test_config_reads_env_vars(config, config_with_env):
-    assert getattr(config_with_env, TEST_VAR_NAME) == TEST_VAR_VALUE
-    assert TEST_VAR_NAME in config_with_env
-    assert TEST_VAR_NAME not in config
-
-
-def test_config_reads_override_list(config, config_with_override_list):
-    assert getattr(config_with_override_list, TEST_VAR_NAME) == TEST_VAR_VALUE
-    assert TEST_VAR_NAME in config_with_override_list
-    assert TEST_VAR_NAME not in config
-
-
-def test_config_can_set_attribute(config):
-    key, val = 'foo', 'bar'
-    assert key not in config
-    setattr(config, key, val)
-    assert key in config
-    assert getattr(config, key) == val
-
-
-def test_config_can_delete_attribute(config):
-    key, val = 'foo', 'bar'
-    setattr(config, key, val)
-    assert key in config
-    assert getattr(config, key) == val
-    delattr(config, key)
-    assert key not in config
-
-
-def test_config_values(config_values):
-    config_value, expected = config_values
-    assert config_value.evaluate() == expected
-
-
-def test_config_values_bad(config_values_bad):
-    with pytest.raises(ConfigException):
-        config_values_bad.evaluate()
-
-
-def test_config_uuid(config):
-    config_value_a1 = ConfigValue(config, '(( uuid | a ))')
-    config_value_a2 = ConfigValue(config, '(( uuid |  a  ))')
-    config_value_b = ConfigValue(config, '(( uuid | b ))')
-
-    assert config_value_a1.evaluate()
-    assert config_value_b.evaluate()
-    assert config_value_a1.evaluate() == config_value_a2.evaluate()
-    assert config_value_a1.evaluate() != config_value_b.evaluate()
-
-
-def test_config_env_var(config_with_env):
-    config_value = ConfigValue(config_with_env, '(( env | {} ))'.format(TEST_VAR_KEY))
-    assert config_value.evaluate() == TEST_VAR_VALUE
-
-
-def test_config_env_var_missing(config):
-    config_value = ConfigValue(config, '(( env | {} ))'.format(TEST_VAR_KEY))
-    with pytest.raises(ConfigException):
-        config_value.evaluate()
-
-
-def test_config_env_var_default(config_with_env):
-    default_val = 'default'
-    config_value = ConfigValue(config_with_env, '(( env | {} | {} ))'.format(TEST_VAR_KEY, default_val))
-    assert config_value.evaluate() == TEST_VAR_VALUE
-
-
-def test_config_env_var_missing_default(config):
-    default_val = 'default'
-    config_value = ConfigValue(config, '(( env | {} | {} ))'.format(TEST_VAR_KEY, default_val))
-    assert config_value.evaluate() == default_val
-
-
-@pytest.mark.files
-def test_config_files(config_with_files):
-    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
-        assert getattr(config_with_files, key) == value
-
-
-@pytest.mark.files
-def test_config_files_lookup(config_with_files):
-    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
-        lookup_key = 'lookup_{}'.format(key)
-        setattr(config_with_files, lookup_key, '(( lookup | {} | (( {} )) ))'.format(YAML_LOOKUP_FILE_NAME, key))
-        assert getattr(config_with_files, lookup_key) == YAML_FILE_DATA[YAML_LOOKUP_FILE_NAME][value]
-
-
-@pytest.mark.files
-def test_config_files_lookup_error(config_with_files):
-    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
-        lookup_key = 'lookup_{}'.format(key)
-        setattr(config_with_files, lookup_key, '(( lookup | {} ))'.format(YAML_LOOKUP_FILE_NAME))
-        with pytest.raises(ConfigException):
-            getattr(config_with_files, lookup_key)
-
-
-@pytest.mark.files
-def test_config_file_missing():
-    with pytest.raises(ConfigLoadException):
-        Config(config_file_name = MISSING_FILE_NAME)
-
-
-@pytest.mark.files
-def test_config_file_bad_data(config_file_name_bad_data):
-    with pytest.raises(ConfigLoadException):
-        Config(config_file_name = config_file_name_bad_data)
-
-
 def test_config_from_string(config_data):
     config_data_string = safe_dump(config_data)
     config = Config(config_string = config_data_string)
@@ -372,6 +371,10 @@ def check_expected(data, expected):
         assert data == expected
 
 
-def test_config_from_string_bad(config_yaml_string_bad):
+@pytest.mark.parametrize(
+    'yaml_bad_str',
+    YAML_BAD_STRING_LIST
+)
+def test_config_from_string_bad(yaml_bad_str):
     with pytest.raises(ConfigLoadException):
-        Config(config_string = config_yaml_string_bad)
+        Config(config_string = yaml_bad_str)
