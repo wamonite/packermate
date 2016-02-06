@@ -57,10 +57,10 @@ class ConfigLoadFormatException(ConfigLoadException):
 
 class ConfigValue(object):
 
-    def __init__(self, config, value = None, dynamic = False):
+    def __init__(self, config, value = None):
         self._config = config
         self._value = value
-        self._dynamic = dynamic
+        self._dynamic = value is None
         self._value_list = []
 
     def evaluate(self):
@@ -69,10 +69,7 @@ class ConfigValue(object):
                 self._parse(self._value)
 
             except ConfigException as e:
-                if not self._dynamic:
-                    raise ConfigException("Failed to parse: line='{}' reason='{}'".format(self._value, e))
-
-                raise
+                raise ConfigException("Failed to parse: line='{}' reason='{}'".format(self._value, e))
 
             self._value = None
 
@@ -102,7 +99,7 @@ class ConfigValue(object):
                 self._value_list.append(val_before)
 
             if val_after:
-                config_value = ConfigValue(self._config, dynamic = True)
+                config_value = ConfigValue(self._config)
                 self._value_list.append(config_value)
 
                 val_left = config_value._parse(val_after)

@@ -451,3 +451,49 @@ def check_expected(data, expected):
 def test_config_from_string_bad(yaml_bad_str):
     with pytest.raises(ConfigLoadException):
         Config(config_string = yaml_bad_str)
+
+
+@pytest.mark.parametrize(
+    'config_str,expected_str',
+    (
+        (
+            """---
+key1:
+  - key2: val1
+    key3:
+      - key4: val2
+        key5: val3
+""",
+            '\n'.join([
+                'aws_ami_force_deregister: False',
+                'aws_ami_name: wamopacker {{ isotime \"2006-01-02 15-04\" }}',
+                'key1:',
+                '  - key2: val1',
+                '    key3:',
+                '      - key4: val2',
+                '        key5: val3',
+                'packer_command: packer',
+                'shell_command: {{ .Vars }} bash \'{{ .Path }}\'',
+                'shell_command_sudo: sudo -H -S {{ .Vars }} bash \'{{ .Path }}\'',
+                'virtualbox_guest_os_type: Ubuntu_64',
+                'virtualbox_iso_checksum_type: md5',
+                'virtualbox_packer_http_dir: packer_http',
+                'virtualbox_password: ',
+                'virtualbox_shutdown_command: echo \'(( virtualbox_password ))\' | sudo -S shutdown -P now'
+            ])
+        ),
+    )
+)
+def test_config_print(config_str, expected_str):
+    config = Config(config_string = config_str)
+    config_dump = str(config)
+
+    assert config_dump == expected_str
+
+    config_repr = repr(config)
+    expected_repr = '\n'.join([
+        'Config[',
+        config_dump,
+        ']'
+    ])
+    assert config_repr == expected_repr
