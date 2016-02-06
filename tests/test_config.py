@@ -127,7 +127,7 @@ empty: ''
         ('(( lookup_optional | {} | (( foo )) ))'.format(MISSING_FILE_NAME), '123'),
     ),
 )
-def test_config_values(config_value_config, config_val_str, expected):
+def test_config_value(config_value_config, config_val_str, expected):
     config_value = ConfigValue(config_value_config, config_val_str)
     assert config_value.evaluate() == expected
 
@@ -161,7 +161,7 @@ def test_config_values(config_value_config, config_val_str, expected):
         '(( lookup | {} | test ))'.format(MISSING_FILE_NAME),
     )
 )
-def test_config_values_bad(config_value_config, config_val_str):
+def test_config_value_error(config_value_config, config_val_str):
     config_value = ConfigValue(config_value_config, config_val_str)
     with pytest.raises(ConfigException):
         config_value.evaluate()

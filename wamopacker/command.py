@@ -3,17 +3,13 @@
 
 from __future__ import print_function, unicode_literals
 import os
-from tempfile import mkdtemp
-from shutil import rmtree
-from json import load, dump
 from .process import run_command, ProcessException
 import re
-from string import Template
 import json
 import logging
 from datetime import datetime
-import hashlib
 from semantic_version import Version
+from .file_utils import TempDir, DataDir, get_md5_sum, write_json_file
 
 
 PRESEED_FILE_NAME = 'preseed.cfg'
@@ -26,65 +22,6 @@ log = logging.getLogger('wamopacker.command')
 
 
 __all__ = ['Builder', 'BuilderException']
-
-
-class TempDir(object):
-
-    def __init__(self, root_dir = None):
-        self.path = None
-        self._root_dir = root_dir
-
-    def __enter__(self):
-        if self.path:
-            raise IOError('temp dir exists')
-
-        self.path = mkdtemp(dir = self._root_dir)
-
-        return self
-
-    def __exit__(self, type, value, traceback):
-        if self.path and os.path.isdir(self.path):
-            rmtree(self.path)
-            self.path = None
-
-
-class DataDir(object):
-
-    def __init__(self):
-        self._data_path = os.path.join(os.path.dirname(__file__), 'data')
-
-    def read_template(self, file_name):
-        template_path = os.path.join(self._data_path, 'templates')
-        template_file_name = os.path.join(template_path, '{}.template'.format(file_name))
-        with open(template_file_name, 'rb') as file_object:
-            return Template(file_object.read())
-
-    def read_json(self, file_name):
-        file_name = os.path.join(self._data_path, '{}.json'.format(file_name))
-        with open(file_name, 'r') as file_object:
-            return load(file_object)
-
-
-class FileUtils(object):
-
-    @staticmethod
-    def get_md5_sum(file_name):
-        md5 = hashlib.md5()
-        with open(file_name, 'rb') as file_object:
-            while True:
-                data = file_object.read(1024 * 1024)
-                if len(data) > 0:
-                    md5.update(data)
-
-                else:
-                    break
-
-        return md5.hexdigest()
-
-    @staticmethod
-    def write_json_file(json_object, file_name):
-        with open(file_name, 'w') as file_object:
-            dump(json_object, file_object, indent = 4, sort_keys = True)
 
 
 class BuilderException(Exception):
@@ -519,10 +456,10 @@ class Builder(object):
     def _run_packer(self, packer_config, temp_dir):
         if self._dump_packer:
             log.info("Dumping Packer configuration to '{}'".format(PACKER_CONFIG_FILE_NAME))
-            FileUtils.write_json_file(packer_config, PACKER_CONFIG_FILE_NAME)
+            write_json_file(packer_config, PACKER_CONFIG_FILE_NAME)
 
         packer_config_file_name = os.path.join(temp_dir.path, PACKER_CONFIG_FILE_NAME)
-        FileUtils.write_json_file(packer_config, packer_config_file_name)
+        write_json_file(packer_config, packer_config_file_name)
 
         try:
             log.info('Validating Packer configuration')
@@ -636,7 +573,7 @@ class Builder(object):
                 'name': target,
                 'url': box_file_url,
                 'checksum_type': 'md5',
-                'checksum': FileUtils.get_md5_sum(box_file_name)
+                'checksum': get_md5_sum(box_file_name)
             }
 
             version_info_current['providers'].append(provider_info)
@@ -645,7 +582,7 @@ class Builder(object):
         for version_info_key in sorted(version_info_lookup.keys()):
             file_content['versions'].append(version_info_lookup[version_info_key])
 
-        FileUtils.write_json_file(file_content, version_file_name)
+        write_json_file(file_content, version_file_name)
 
         self._copy_vagrant_files(version_file_name)
 
