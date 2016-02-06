@@ -12,7 +12,7 @@ import logging
 import os
 from tempfile import mkdtemp
 from shutil import rmtree
-from yaml import safe_dump
+import yaml
 
 
 log = logging.getLogger('wamopacker.test_config')
@@ -22,6 +22,7 @@ TEST_VAR_KEY = ENV_VAR_PREFIX + TEST_VAR_NAME
 TEST_VAR_VALUE = 'meh'
 YAML_CONFIG_FILE_NAME = 'config.yml'
 YAML_LOOKUP_FILE_NAME = 'lookup.yml'
+YAML_LIST_FILE_NAME = 'list.yml'
 YAML_FILE_DATA = {
     YAML_CONFIG_FILE_NAME: {
         'fizz': 'abc',
@@ -30,7 +31,11 @@ YAML_FILE_DATA = {
     YAML_LOOKUP_FILE_NAME: {
         'abc': 'easy as',
         'def': '123'
-    }
+    },
+    YAML_LIST_FILE_NAME: [
+        '456',
+        'ghi'
+    ]
 }
 YAML_BAD_STRING_LIST = (
     "",
@@ -72,12 +77,6 @@ def config_with_env_vars(with_env_vars):
     return Config()
 
 
-@pytest.fixture()
-def config_with_override_list(no_env_vars):
-    override_list = ['{}={}'.format(TEST_VAR_NAME, TEST_VAR_VALUE)]
-    return Config(override_list = override_list)
-
-
 # ConfigValue
 
 @pytest.fixture()
@@ -88,10 +87,6 @@ bar: '456'
 empty: ''
 """
     return Config(config_string = config_str)
-
-
-def config_values_ids(fixture_value):
-    return "'{}' == '{}'".format(*fixture_value)
 
 
 @pytest.mark.parametrize(
@@ -131,7 +126,6 @@ def config_values_ids(fixture_value):
         ('(( lookup_optional | {} | foo ))'.format(MISSING_FILE_NAME), 'foo'),
         ('(( lookup_optional | {} | (( foo )) ))'.format(MISSING_FILE_NAME), '123'),
     ),
-    ids = config_values_ids
 )
 def test_config_values(config_value_config, config_val_str, expected):
     config_value = ConfigValue(config_value_config, config_val_str)
@@ -187,11 +181,28 @@ def test_config_reads_env_vars(config_no_env_vars, config_with_env_vars):
     assert TEST_VAR_NAME in config_with_env_vars
 
 
-def test_config_reads_override_list(config_no_env_vars, config_with_override_list):
-    assert TEST_VAR_NAME not in config_no_env_vars
+@pytest.mark.parametrize(
+    'override_list,key,val',
+    (
+        (['{}={}'.format(TEST_VAR_NAME, TEST_VAR_VALUE)], TEST_VAR_NAME, TEST_VAR_VALUE),
+    )
+)
+def test_config_reads_override_list(override_list, key, val):
+    config = Config(override_list = override_list)
 
-    assert getattr(config_with_override_list, TEST_VAR_NAME) == TEST_VAR_VALUE
-    assert TEST_VAR_NAME in config_with_override_list
+    assert getattr(config, key) == val
+    assert key in config
+
+
+@pytest.mark.parametrize(
+    'override_list',
+    (
+        ['test'],
+    )
+)
+def test_config_reads_override_list_error(override_list):
+    with pytest.raises(ConfigException):
+        Config(override_list = override_list)
 
 
 def test_config_can_set_attribute(config_no_env_vars):
@@ -276,16 +287,70 @@ def temp_dir(request):
 
 
 @pytest.fixture()
-def config_with_files(temp_dir):
+def yaml_file_lookup(temp_dir):
+    file_name_lookup = {}
     for file_name, file_data in YAML_FILE_DATA.iteritems():
         file_name_full = os.path.join(temp_dir, file_name)
+        file_name_lookup[file_name] = file_name_full
+
         with open(file_name_full, 'w') as file_object:
-            safe_dump(file_data, file_object)
+            yaml.safe_dump(file_data, file_object, default_flow_style = False)
 
     os.chdir(temp_dir)
 
-    config_file_name_full = os.path.join(temp_dir, YAML_CONFIG_FILE_NAME)
-    return Config(config_file_name = config_file_name_full)
+    return file_name_lookup
+
+
+@pytest.fixture()
+def config_with_files(yaml_file_lookup):
+    return Config(config_file_name = yaml_file_lookup[YAML_CONFIG_FILE_NAME])
+
+
+def test_config_file_missing():
+    with pytest.raises(ConfigLoadException):
+        Config(config_file_name = MISSING_FILE_NAME)
+
+
+@pytest.mark.parametrize(
+    'include_str',
+    (
+        'include_optional:\n- {MISSING_FILE_NAME}',
+        'include:\n- {YAML_LOOKUP_FILE_NAME}',
+        'include_optional:\n- {YAML_LOOKUP_FILE_NAME}',
+    )
+)
+def test_config_file_include(yaml_file_lookup, include_str):
+    config_file_name = yaml_file_lookup[YAML_CONFIG_FILE_NAME]
+    with open(config_file_name, 'a') as file_object:
+        file_object.write(include_str.format(**(globals())))
+
+    Config(config_file_name = config_file_name)
+
+
+@pytest.mark.parametrize(
+    'include_str',
+    (
+        'include:',
+        'include: {MISSING_FILE_NAME}',
+        'include:\n- {MISSING_FILE_NAME}',
+        'include_optional:',
+        'include_optional: {MISSING_FILE_NAME}',
+        'include:\n- {YAML_LIST_FILE_NAME}',
+        'include_optional:\n- {YAML_LIST_FILE_NAME}',
+    )
+)
+def test_config_file_include_errors(yaml_file_lookup, include_str):
+    config_file_name = yaml_file_lookup[YAML_CONFIG_FILE_NAME]
+    with open(config_file_name, 'a') as file_object:
+        file_object.write(include_str.format(**(globals())))
+
+    with pytest.raises(ConfigException):
+        Config(config_file_name = config_file_name)
+
+
+def test_config_include_missing(config_with_files):
+    with pytest.raises(ConfigLoadException):
+        Config(config_file_name = MISSING_FILE_NAME)
 
 
 def test_config_files(config_with_files):
@@ -293,24 +358,32 @@ def test_config_files(config_with_files):
         assert getattr(config_with_files, key) == value
 
 
-def test_config_files_lookup(config_with_files):
-    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
-        lookup_key = 'lookup_{}'.format(key)
-        setattr(config_with_files, lookup_key, '(( lookup | {} | (( {} )) ))'.format(YAML_LOOKUP_FILE_NAME, key))
-        assert getattr(config_with_files, lookup_key) == YAML_FILE_DATA[YAML_LOOKUP_FILE_NAME][value]
+@pytest.mark.parametrize(
+    'lookup_str,expected',
+    (
+        ('(( lookup | {YAML_LOOKUP_FILE_NAME} | def ))', '123'),
+        ('(( lookup_optional | {YAML_LOOKUP_FILE_NAME} | def ))', '123'),
+    )
+)
+def test_config_files_lookup(config_with_files, lookup_str, expected):
+    lookup_key = 'lookup_key'
+    setattr(config_with_files, lookup_key, lookup_str.format(**(globals())))
+    assert getattr(config_with_files, lookup_key) == expected
 
 
-def test_config_files_lookup_error(config_with_files):
-    for key, value in YAML_FILE_DATA[YAML_CONFIG_FILE_NAME].iteritems():
-        lookup_key = 'lookup_{}'.format(key)
-        setattr(config_with_files, lookup_key, '(( lookup | {} ))'.format(YAML_LOOKUP_FILE_NAME))
-        with pytest.raises(ConfigException):
-            getattr(config_with_files, lookup_key)
-
-
-def test_config_file_missing():
-    with pytest.raises(ConfigLoadException):
-        Config(config_file_name = MISSING_FILE_NAME)
+@pytest.mark.parametrize(
+    'lookup_str',
+    (
+        '(( lookup | {YAML_LOOKUP_FILE_NAME}))',
+        '(( lookup | {YAML_LIST_FILE_NAME} | test ))',
+        '(( lookup_optional | {YAML_LIST_FILE_NAME} | test ))',
+    )
+)
+def test_config_files_lookup_error(config_with_files, lookup_str):
+    lookup_key = 'lookup_key'
+    setattr(config_with_files, lookup_key, lookup_str.format(**(globals())))
+    with pytest.raises(ConfigException):
+        getattr(config_with_files, lookup_key)
 
 
 @pytest.fixture(
@@ -352,7 +425,7 @@ def test_config_file_bad_data(yaml_file_with_bad_data):
     )
 )
 def test_config_from_string(config_data):
-    config_data_string = safe_dump(config_data)
+    config_data_string = yaml.safe_dump(config_data, default_flow_style = False)
     config = Config(config_string = config_data_string)
     for key, val in config_data.iteritems():
         check_expected(getattr(config, key), val)

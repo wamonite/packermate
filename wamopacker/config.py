@@ -51,6 +51,10 @@ class ConfigLoadException(ConfigException):
     pass
 
 
+class ConfigLoadFormatException(ConfigLoadException):
+    pass
+
+
 class ConfigValue(object):
 
     def __init__(self, config, value = None, dynamic = False):
@@ -68,8 +72,7 @@ class ConfigValue(object):
                 if not self._dynamic:
                     raise ConfigException("Failed to parse: line='{}' reason='{}'".format(self._value, e))
 
-                else:
-                    raise
+                raise
 
             self._value = None
 
@@ -168,11 +171,7 @@ class ConfigValue(object):
                     val_new = lookup[val_extra] if val_extra in lookup else val_extra
 
             elif val_type == 'default':
-                try:
-                    val_new = val_name or val_extra
-
-                except ConfigException:
-                    val_new = val_extra
+                val_new = val_name or val_extra
 
         if value_list_len == 2:
             val_type, val_name = value_list
@@ -225,7 +224,7 @@ class ConfigFileLoader(object):
             raise ConfigLoadException("Unable to load config: '{}'".format(self.name))
 
         if not isinstance(config_data, dict):
-            raise ConfigLoadException("Config file should contain a valid YAML dictionary: '{}'".format(self.name))
+            raise ConfigLoadFormatException("Config file should contain a valid YAML dictionary: '{}'".format(self.name))
 
         return config_data
 
@@ -247,7 +246,7 @@ class ConfigStringLoader(object):
             raise ConfigLoadException("Unable to load config: '{}'".format(self.name))
 
         if not isinstance(config_data, dict):
-            raise ConfigLoadException("Config file should contain a valid YAML dictionary: '{}'".format(self.name))
+            raise ConfigLoadFormatException("Config file should contain a valid YAML dictionary: '{}'".format(self.name))
 
         return config_data
 
@@ -415,7 +414,7 @@ class Config(object):
 
         if 'include' in config_data:
             if not isinstance(config_data['include'], list):
-                raise ConfigException("Config file includes should contain a valid YAML list: '{}'".format(config_loader.name))
+                raise ConfigLoadFormatException("Config file includes should contain a valid YAML list: '{}'".format(config_loader.name))
 
             for include_file_name in config_data['include']:
                 include_file_name_full = self.expand_parameters(include_file_name)
@@ -426,13 +425,16 @@ class Config(object):
 
         if 'include_optional' in config_data:
             if not isinstance(config_data['include_optional'], list):
-                raise ConfigException("Config file optional includes should contain a valid YAML list: '{}'".format(config_loader.name))
+                raise ConfigLoadFormatException("Config file optional includes should contain a valid YAML list: '{}'".format(config_loader.name))
 
             for include_file_name in config_data['include_optional']:
                 include_file_name_full = self.expand_parameters(include_file_name)
                 try:
                     include_config_loader = ConfigFileLoader(include_file_name_full)
                     self._read_config(include_config_loader)
+
+                except ConfigLoadFormatException:
+                    raise
 
                 except ConfigLoadException:
                     log.info("Skipped optional config: '{}'".format(include_file_name_full))
