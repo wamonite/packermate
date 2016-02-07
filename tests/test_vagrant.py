@@ -6,6 +6,7 @@ import pytest
 from wamopacker.vagrant import *
 import json
 import os
+from semantic_version import Version
 
 
 @pytest.fixture(
@@ -173,15 +174,18 @@ def test_vagrant_box_metadata_create():
         ('1.2.3-4', None),
         ('1.2.3_4', None),
         ('1.2.3+4', None),
+        (Version('1.2.3'), '1.2.3'),
+        (Version('1.2.3-4'), None),
+        (Version('1.2', partial = True), None),
     )
 )
 def test_vagrant_box_metadata_version(version_str, expected):
     if expected is not None:
-        assert str(VagrantBoxMetadata._validate_version(version_str)) == expected
+        assert str(VagrantBoxMetadata._parse_version(version_str)) == expected
 
     else:
         with pytest.raises(VagrantBoxMetadataException):
-            VagrantBoxMetadata._validate_version(version_str)
+            VagrantBoxMetadata._parse_version(version_str)
 
 
 @pytest.mark.parametrize(

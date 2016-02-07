@@ -85,7 +85,7 @@ class VagrantBoxMetadata(object):
 
     @property
     def versions(self):
-        return self._validate_versions(self._metadata['versions'])
+        return self._parse_version_list(self._metadata['versions'])
 
     def _validate(self):
         if not isinstance(self._metadata, dict):
@@ -98,10 +98,10 @@ class VagrantBoxMetadata(object):
         if not isinstance(version_list, list):
             raise VagrantBoxMetadataException("Metadata does not have any versions")
 
-        self._validate_versions(version_list)
+        self._parse_version_list(version_list)
 
     @staticmethod
-    def _validate_versions(version_list):
+    def _parse_version_list(version_list):
         parsed_list = []
         for version_lookup in version_list:
             status_str = version_lookup.get('status', '<not present>')
@@ -112,7 +112,7 @@ class VagrantBoxMetadata(object):
                 raise VagrantBoxMetadataException("Version value missing")
 
             version_str = version_lookup['version']
-            version_val = VagrantBoxMetadata._validate_version(version_str)
+            version_val = VagrantBoxMetadata._parse_version(version_str)
             provider_lookup_list = version_lookup.get('providers', [])
             provider_list = [provider['name'] for provider in provider_lookup_list if provider.get('name') and provider.get('url')]
 
@@ -127,28 +127,37 @@ class VagrantBoxMetadata(object):
         return parsed_list
 
     @staticmethod
-    def _validate_version(version_str):
-        if not (version_str and isinstance(version_str, basestring)):
-            raise VagrantBoxMetadataException("Invalid version value: '{}'".format(version_str))
+    def _parse_version(version_val):
+        if not version_val:
+            raise VagrantBoxMetadataException("Invalid version value: '{}'".format(version_val))
 
-        version_split = version_str.split('.')
-        if len(version_split) > 3:
-            raise VagrantBoxMetadataException("Invalid number of version elements: '{}'".format(version_str))
+        elif isinstance(version_val, basestring):
+            version_split = version_val.split('.')
+            if len(version_split) > 3:
+                raise VagrantBoxMetadataException("Invalid number of version elements: '{}'".format(version_val))
 
-        # strip leading zeroes and ensure not a partial version
-        version_parts = map(
-            lambda val: val.lstrip('0') if len(val) > 1 else val,
-            map(
-                lambda element, default: element or default,
-                version_split[:3],
-                ['0'] * 3
+            # strip leading zeroes and ensure not a partial version
+            version_parts = map(
+                lambda val: val.lstrip('0') if len(val) > 1 else val,
+                map(
+                    lambda element, default: element or default,
+                    version_split[:3],
+                    ['0'] * 3
+                )
             )
-        )
-        for version_part in version_parts:
-            if not version_part.isdigit():
-                raise VagrantBoxMetadataException("Pre-release and build versions unsupported: '{}'".format(version_str))
+            for version_part in version_parts:
+                if not version_part.isdigit():
+                    raise VagrantBoxMetadataException("Pre-release and build versions unsupported: '{}'".format(version_val))
 
-        return semantic_version.Version('.'.join(version_parts))
+            return semantic_version.Version('.'.join(version_parts))
+
+        elif isinstance(version_val, semantic_version.Version):
+            if version_val.partial or version_val.prerelease or version_val.build:
+                raise VagrantBoxMetadataException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
+
+            return version_val
+
+        raise VagrantBoxMetadataException("Unsupport version type: '{}'".format(version_val))
 
     def write(self, file_name):
         try:
