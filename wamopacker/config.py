@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, unicode_literals
-from yaml import safe_load, SafeLoader
-from yaml.scanner import ScannerError
 from copy import deepcopy
 import re
 import os
 import uuid
+from .file_utils import read_yaml_file, read_yaml_string
 import logging
 
 
@@ -31,16 +30,6 @@ log = logging.getLogger('wamopacker.config')
 
 
 __all__ = ['ConfigException', 'ConfigLoadException', 'ConfigValue', 'Config']
-
-
-# https://stackoverflow.com/questions/2890146/how-to-force-pyyaml-to-load-strings-as-unicode-objects
-
-def construct_yaml_str(self, node):
-    # Override the default string handling function
-    # to always return unicode objects
-    return self.construct_scalar(node)
-
-SafeLoader.add_constructor(u'tag:yaml.org,2002:str', construct_yaml_str)
 
 
 class ConfigException(Exception):
@@ -140,11 +129,8 @@ class ConfigValue(object):
                     val_new = val_extra
 
             elif val_type == 'lookup':
-                try:
-                    with open(val_name, 'r') as file_object:
-                        lookup = safe_load(file_object)
-
-                except IOError:
+                lookup = read_yaml_file(val_name)
+                if lookup is None:
                     raise ConfigException('Unable to load lookup: {}'.format(val_name))
 
                 else:
@@ -154,11 +140,8 @@ class ConfigValue(object):
                     val_new = lookup[val_extra] if val_extra in lookup else val_extra
 
             elif val_type == 'lookup_optional':
-                try:
-                    with open(val_name, 'r') as file_object:
-                        lookup = safe_load(file_object)
-
-                except IOError:
+                lookup = read_yaml_file(val_name)
+                if lookup is None:
                     val_new = val_extra
 
                 else:
@@ -213,11 +196,8 @@ class ConfigFileLoader(object):
         return self._file_name
 
     def get_data(self):
-        try:
-            with open(self._file_name) as file_object:
-                config_data = safe_load(file_object)
-
-        except (IOError, ScannerError):
+        config_data = read_yaml_file(self._file_name)
+        if config_data is None:
             raise ConfigLoadException("Unable to load config: '{}'".format(self.name))
 
         if not isinstance(config_data, dict):
@@ -236,10 +216,8 @@ class ConfigStringLoader(object):
         return '<string>'
 
     def get_data(self):
-        try:
-            config_data = safe_load(self._config_string)
-
-        except ScannerError:
+        config_data = read_yaml_string(self._config_string)
+        if config_data is None:
             raise ConfigLoadException("Unable to load config: '{}'".format(self.name))
 
         if not isinstance(config_data, dict):

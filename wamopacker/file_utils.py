@@ -5,9 +5,21 @@ from __future__ import print_function, unicode_literals
 import os
 from tempfile import mkdtemp
 from shutil import rmtree
-from json import load, dump
+import json
 from string import Template
+import yaml
+import yaml.scanner
 import hashlib
+
+
+# https://stackoverflow.com/questions/2890146/how-to-force-pyyaml-to-load-strings-as-unicode-objects
+
+def construct_yaml_str(self, node):
+    # Override the default string handling function
+    # to always return unicode objects
+    return self.construct_scalar(node)
+
+yaml.SafeLoader.add_constructor(u'tag:yaml.org,2002:str', construct_yaml_str)
 
 
 class TempDir(object):
@@ -52,7 +64,7 @@ class DataDir(object):
     def read_json(self, file_name):
         file_name = os.path.join(self._root_dir, '{}.json'.format(file_name))
         with open(file_name, 'r') as file_object:
-            return load(file_object)
+            return json.load(file_object)
 
 
 def get_md5_sum(file_name):
@@ -69,6 +81,23 @@ def get_md5_sum(file_name):
     return md5.hexdigest()
 
 
-def write_json_file(json_object, file_name):
+def read_yaml_file(file_name):
+    try:
+        with open(file_name, 'r') as file_object:
+            return yaml.safe_load(file_object)
+
+    except (IOError, yaml.scanner.ScannerError):
+        return None
+
+
+def read_yaml_string(data):
+    try:
+        return yaml.safe_load(data)
+
+    except yaml.scanner.ScannerError:
+        return None
+
+
+def write_json_file(data, file_name):
     with open(file_name, 'w') as file_object:
-        dump(json_object, file_object, indent = 4, sort_keys = True)
+        json.dump(data, file_object, indent = 4, sort_keys = True)
