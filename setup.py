@@ -37,6 +37,7 @@ setup(
     install_requires = [
         'pyaml',
         'semantic_version',
+        'requests',
     ],
     setup_requires = [
         'pytest-runner',
