@@ -7,6 +7,7 @@ import requests
 from requests.exceptions import ConnectionError
 import json
 import semantic_version
+from .file_utils import write_json_file
 import logging
 
 
@@ -148,3 +149,10 @@ class VagrantBoxMetadata(object):
                 raise VagrantBoxMetadataException("Pre-release and build versions unsupported: '{}'".format(version_str))
 
         return semantic_version.Version('.'.join(version_parts))
+
+    def write(self, file_name):
+        try:
+            write_json_file(self._metadata, file_name)
+
+        except IOError as e:
+            raise VagrantBoxMetadataException("Failed to write metadata: file='{}' error='{}'".format(file_name, e))
