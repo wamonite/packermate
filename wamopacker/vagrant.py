@@ -8,6 +8,7 @@ from requests.exceptions import ConnectionError
 import json
 import semantic_version
 from .file_utils import write_json_file
+from datetime import datetime
 import logging
 
 
@@ -113,15 +114,16 @@ class VagrantBoxMetadata(object):
 
             version_str = version_lookup['version']
             version_val = VagrantBoxMetadata._parse_version(version_str)
-            provider_lookup_list = version_lookup.get('providers', [])
-            provider_list = [provider['name'] for provider in provider_lookup_list if provider.get('name') and provider.get('url')]
+            provider_info_list = version_lookup.get('providers', [])
+            # provider_list = [provider['name'] for provider in provider_lookup_list if provider.get('name') and provider.get('url')]
 
             parsed_version = {
                 'version_str': version_str,
                 'version': version_val,
                 'status': status_str,
-                'providers': provider_list,
+                'providers': provider_info_list,
             }
+
             parsed_list.append(parsed_version)
 
         return parsed_list
@@ -158,6 +160,76 @@ class VagrantBoxMetadata(object):
             return version_val
 
         raise VagrantBoxMetadataException("Unsupport version type: '{}'".format(version_val))
+
+    @staticmethod
+    def _get_version_index(version_val, version_list):
+        assert isinstance(version_val, semantic_version.Version)
+
+        insert_at = None
+        match_at = None
+        for index, list_val in enumerate(version_list):
+            assert isinstance(list_val, semantic_version.Version)
+
+            if version_val == list_val:
+                match_at = index
+                break
+
+            if version_val > list_val:
+                insert_at = index
+                break
+
+        return insert_at, match_at
+
+    @staticmethod
+    def _get_provider(provider_name, provider_list):
+        provider_new = None
+        for provider_info in provider_list:
+            if provider_info['name'] == provider_name:
+                provider_new = provider_info
+
+                break
+
+        if not provider_new:
+            provider_new = {
+                'name': provider_name,
+            }
+            provider_list.append(provider_new)
+
+        return provider_new
+
+    def add_version(self, version, provider, url, checksum = None, checksum_type = None):
+        version_val = self._parse_version(version)
+
+        version_list = [val['version'] for val in self.versions]
+        insert_at, match_at = self._get_version_index(version_val, version_list)
+
+        time_now = datetime.utcnow()
+        time_str = time_now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
+        if match_at is None:
+            version_new = {
+                'version': str(version_val),
+                'created_at': time_str,
+                'updated_at': time_str,
+                'status': 'active',
+                'providers': [],
+            }
+            if insert_at is not None:
+                self._metadata['versions'].insert(insert_at, version_new)
+
+            else:
+                self._metadata['versions'].append(version_new)
+
+        else:
+            version_new = self._metadata['versions'][match_at]
+            version_new['updated_at'] = time_str
+
+        provider_new = self._get_provider(provider, version_new['providers'])
+
+        provider_new['url'] = url
+        if checksum and checksum_type:
+            provider_new['checksum'] = checksum
+            provider_new['checksum_type'] = checksum_type
 
     def write(self, file_name):
         try:

@@ -160,7 +160,7 @@ def test_vagrant_box_metadata_create():
 
 
 @pytest.mark.parametrize(
-    'version_str,expected',
+    'version_str, expected',
     (
         ('', None),
         ('a', None),
@@ -204,3 +204,92 @@ def test_vagrant_box_metadata_download_url(url, expected):
     else:
         with pytest.raises(VagrantBoxMetadataException):
             VagrantBoxMetadata(url)
+
+@pytest.mark.parametrize(
+    'version, version_list, insert_expected, match_expected',
+    (
+        ('1.0.0', [], None, None),
+        ('1.0.0', ['0.1.0'], 0, None),
+        ('0.1.0', ['1.0.0'], None, None),
+        ('1.1.1', ['1.2.0', '1.0.0'], 1, None),
+        ('1.2.0', ['1.2.0', '1.1.1', '1.0.0'], None, 0),
+        ('1.1.1', ['1.2.0', '1.1.1', '1.0.0'], None, 1),
+        ('1.0.0', ['1.2.0', '1.1.1', '1.0.0'], None, 2),
+    )
+)
+def test_vagrant_box_metadata_get_add_index(version, version_list, insert_expected, match_expected):
+    test_version = VagrantBoxMetadata._parse_version(version)
+    test_version_list = [Version(val) for val in version_list]
+    insert_at, match_at = VagrantBoxMetadata._get_version_index(test_version, test_version_list)
+    assert insert_at == insert_expected
+    assert match_at == match_expected
+
+
+@pytest.mark.parametrize(
+    'provider_name, provider_list, expected_info, expected_list',
+    (
+        (
+            'aws',
+            [],
+            {'name': 'aws'},
+            [{'name': 'aws'}],
+        ),
+        (
+            'aws',
+            [{'name': 'aws'}],
+            {'name': 'aws'},
+            [{'name': 'aws'}],
+        ),
+        (
+            'virtualbox',
+            [{'name': 'aws'}],
+            {'name': 'virtualbox'},
+            [{'name': 'aws'}, {'name': 'virtualbox'}],
+        ),
+        (
+            'virtualbox',
+            [{'name': 'aws'}, {'name': 'virtualbox'}],
+            {'name': 'virtualbox'},
+            [{'name': 'aws'}, {'name': 'virtualbox'}],
+        ),
+    )
+)
+def test_vagrant_box_metadata_get_provider(provider_name, provider_list, expected_info, expected_list):
+    provider_new = VagrantBoxMetadata._get_provider(provider_name, provider_list)
+    assert provider_new == expected_info
+    assert provider_list == expected_list
+
+
+@pytest.mark.parametrize(
+    'version_list, version_order',
+    (
+        (['1.0.0'], ['1.0.0']),
+        (['1.0.0', '1.0.0'], ['1.0.0']),
+        (['1.1.0', '1.0.0'], ['1.1.0', '1.0.0']),
+        (['1.0.0', '1.1.0'], ['1.1.0', '1.0.0']),
+    )
+)
+@pytest.mark.parametrize(
+    'provider, url, checksum, checksum_type',
+    (
+        ('virtualbox', 'test1', None, None),
+        ('aws', 'test2', '123', None),
+        ('vmware', 'test3', '456', 'md5'),
+    )
+)
+def test_vagrant_box_metadata_add_version(version_list, version_order, provider, url, checksum, checksum_type):
+    metadata = VagrantBoxMetadata(name = 'test')
+    for version_val in [VagrantBoxMetadata._parse_version(val) for val in version_list]:
+        metadata.add_version(version_val, provider, url, checksum, checksum_type)
+
+    for index, version_info in enumerate(metadata.versions):
+        assert version_order[index] == str(version_info['version'])
+        provider_info = {
+            'name': provider,
+            'url': url,
+        }
+        if checksum and checksum_type:
+            provider_info['checksum'] = checksum
+            provider_info['checksum_type'] = checksum_type
+
+        assert version_info['providers'] == [provider_info]

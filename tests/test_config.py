@@ -90,7 +90,7 @@ empty: ''
 
 
 @pytest.mark.parametrize(
-    'config_val_str,expected',
+    'config_val_str, expected',
     (
         ('', ''),
         (' ', ''),
@@ -182,7 +182,7 @@ def test_config_reads_env_vars(config_no_env_vars, config_with_env_vars):
 
 
 @pytest.mark.parametrize(
-    'override_list,key,val',
+    'override_list, key, val',
     (
         (['{}={}'.format(TEST_VAR_NAME, TEST_VAR_VALUE)], TEST_VAR_NAME, TEST_VAR_VALUE),
     )
@@ -359,7 +359,7 @@ def test_config_files(config_with_files):
 
 
 @pytest.mark.parametrize(
-    'lookup_str,expected',
+    'lookup_str, expected',
     (
         ('(( lookup | {YAML_LOOKUP_FILE_NAME} | def ))', '123'),
         ('(( lookup_optional | {YAML_LOOKUP_FILE_NAME} | def ))', '123'),
@@ -454,7 +454,7 @@ def test_config_from_string_bad(yaml_bad_str):
 
 
 @pytest.mark.parametrize(
-    'config_str,expected_str',
+    'config_str, expected_str',
     (
         (
             """---
