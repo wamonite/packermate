@@ -15,14 +15,14 @@ import logging
 log = logging.getLogger('wamopacker.version')
 
 
-__all__ = ['VagrantBoxMetadata', 'VagrantBoxMetadataException']
+__all__ = ['BoxMetadata', 'BoxMetadataException']
 
 
-class VagrantBoxMetadataException(Exception):
+class BoxMetadataException(Exception):
     pass
 
 
-class VagrantBoxMetadata(object):
+class BoxMetadata(object):
 
     def __init__(self, url = None, name = None):
         if url:
@@ -31,13 +31,13 @@ class VagrantBoxMetadata(object):
                 self._metadata = json.loads(url_data)
 
             except ValueError:
-                raise VagrantBoxMetadataException('Failed to decode JSON form metadata file')
+                raise BoxMetadataException('Failed to decode JSON form metadata file')
 
         elif name:
             self._metadata = self._create(name)
 
         else:
-            raise VagrantBoxMetadataException('No URL or name specified')
+            raise BoxMetadataException('No URL or name specified')
 
         self._validate()
 
@@ -51,14 +51,14 @@ class VagrantBoxMetadata(object):
                     url_data = file_object.read()
 
             except IOError as e:
-                raise VagrantBoxMetadataException("Failed to load file: file='{}' error='{}'".format(result.path, e))
+                raise BoxMetadataException("Failed to load file: file='{}' error='{}'".format(result.path, e))
 
         elif result.scheme in ('http', 'https'):
             try:
                 response = requests.get(url)
 
                 if response.status_code != 200:
-                    raise VagrantBoxMetadataException(
+                    raise BoxMetadataException(
                         "Failed to download URL: url='{}' status_code={}".format(url, response.status_code),
                         response.status_code
                     )
@@ -66,10 +66,10 @@ class VagrantBoxMetadata(object):
                 url_data = response.text
 
             except ConnectionError:
-                raise VagrantBoxMetadataException('Failed to download URL: {}'.format(url))
+                raise BoxMetadataException('Failed to download URL: {}'.format(url))
 
         else:
-            raise VagrantBoxMetadataException('Unsupported URL scheme: {}'.format(result.scheme))
+            raise BoxMetadataException('Unsupported URL scheme: {}'.format(result.scheme))
 
         return url_data
 
@@ -90,14 +90,14 @@ class VagrantBoxMetadata(object):
 
     def _validate(self):
         if not isinstance(self._metadata, dict):
-            raise VagrantBoxMetadataException("Metadata does not contain a dictionary")
+            raise BoxMetadataException("Metadata does not contain a dictionary")
 
         if not self._metadata.get('name'):
-            raise VagrantBoxMetadataException("Metadata does not have a name")
+            raise BoxMetadataException("Metadata does not have a name")
 
         version_list = self._metadata.get('versions')
         if not isinstance(version_list, list):
-            raise VagrantBoxMetadataException("Metadata does not have any versions")
+            raise BoxMetadataException("Metadata does not have any versions")
 
         self._parse_version_list(version_list)
 
@@ -107,15 +107,14 @@ class VagrantBoxMetadata(object):
         for version_lookup in version_list:
             status_str = version_lookup.get('status', '<not present>')
             if status_str not in ('active', 'revoked'):
-                raise VagrantBoxMetadataException("Unknown version status: '{}'".format(status_str))
+                raise BoxMetadataException("Unknown version status: '{}'".format(status_str))
 
             if 'version' not in version_lookup:
-                raise VagrantBoxMetadataException("Version value missing")
+                raise BoxMetadataException("Version value missing")
 
             version_str = version_lookup['version']
-            version_val = VagrantBoxMetadata._parse_version(version_str)
+            version_val = BoxMetadata._parse_version(version_str)
             provider_info_list = version_lookup.get('providers', [])
-            # provider_list = [provider['name'] for provider in provider_lookup_list if provider.get('name') and provider.get('url')]
 
             parsed_version = {
                 'version_str': version_str,
@@ -131,12 +130,12 @@ class VagrantBoxMetadata(object):
     @staticmethod
     def _parse_version(version_val):
         if not version_val:
-            raise VagrantBoxMetadataException("Invalid version value: '{}'".format(version_val))
+            raise BoxMetadataException("Invalid version value: '{}'".format(version_val))
 
         elif isinstance(version_val, basestring):
             version_split = version_val.split('.')
             if len(version_split) > 3:
-                raise VagrantBoxMetadataException("Invalid number of version elements: '{}'".format(version_val))
+                raise BoxMetadataException("Invalid number of version elements: '{}'".format(version_val))
 
             # strip leading zeroes and ensure not a partial version
             version_parts = map(
@@ -149,17 +148,17 @@ class VagrantBoxMetadata(object):
             )
             for version_part in version_parts:
                 if not version_part.isdigit():
-                    raise VagrantBoxMetadataException("Pre-release and build versions unsupported: '{}'".format(version_val))
+                    raise BoxMetadataException("Pre-release and build versions unsupported: '{}'".format(version_val))
 
             return semantic_version.Version('.'.join(version_parts))
 
         elif isinstance(version_val, semantic_version.Version):
             if version_val.partial or version_val.prerelease or version_val.build:
-                raise VagrantBoxMetadataException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
+                raise BoxMetadataException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
 
             return version_val
 
-        raise VagrantBoxMetadataException("Unsupport version type: '{}'".format(version_val))
+        raise BoxMetadataException("Unsupport version type: '{}'".format(version_val))
 
     @staticmethod
     def _get_version_index(version_val, version_list):
@@ -236,4 +235,4 @@ class VagrantBoxMetadata(object):
             write_json_file(self._metadata, file_name)
 
         except IOError as e:
-            raise VagrantBoxMetadataException("Failed to write metadata: file='{}' error='{}'".format(file_name, e))
+            raise BoxMetadataException("Failed to write metadata: file='{}' error='{}'".format(file_name, e))

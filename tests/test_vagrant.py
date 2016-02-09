@@ -99,11 +99,11 @@ def vagrant_box_metadata(request, tmpdir):
     return str(temp_file), expected
 
 
-def test_vagrant_box_metadata_file_read_write(vagrant_box_metadata):
+def test_box_metadata_file_read_write(vagrant_box_metadata):
     file_name, expected = vagrant_box_metadata
     input_file_url = 'file://{}'.format(file_name)
     if expected:
-        input_metadata = VagrantBoxMetadata(input_file_url)
+        input_metadata = BoxMetadata(input_file_url)
         assert input_metadata.name
         assert isinstance(input_metadata.versions, list)
 
@@ -120,24 +120,24 @@ def test_vagrant_box_metadata_file_read_write(vagrant_box_metadata):
         assert input_data == output_data
 
     else:
-        with pytest.raises(VagrantBoxMetadataException):
-            VagrantBoxMetadata(input_file_url)
+        with pytest.raises(BoxMetadataException):
+            BoxMetadata(input_file_url)
 
 
-def test_vagrant_box_metadata_file_write_error():
-    metadata = VagrantBoxMetadata(name = 'test')
-    with pytest.raises(VagrantBoxMetadataException):
+def test_box_metadata_file_write_error():
+    metadata = BoxMetadata(name = 'test')
+    with pytest.raises(BoxMetadataException):
         metadata.write('/path/does/not/exist/metadata.json')
 
 
-def test_vagrant_box_metadata_file_read_error(tmpdir):
+def test_box_metadata_file_read_error(tmpdir):
     json_text = "{"
     temp_file = tmpdir.join("metadata.json")
     temp_file.write(json_text)
 
     file_url = 'file://{}'.format(str(temp_file))
-    with pytest.raises(VagrantBoxMetadataException):
-        VagrantBoxMetadata(file_url)
+    with pytest.raises(BoxMetadataException):
+        BoxMetadata(file_url)
 
 
 @pytest.mark.parametrize(
@@ -150,13 +150,13 @@ def test_vagrant_box_metadata_file_read_error(tmpdir):
         'file:///file/does/not/exist',
     )
 )
-def test_vagrant_box_metadata_url_error(url):
-    with pytest.raises(VagrantBoxMetadataException):
-        VagrantBoxMetadata(url)
+def test_box_metadata_url_error(url):
+    with pytest.raises(BoxMetadataException):
+        BoxMetadata(url)
 
 
-def test_vagrant_box_metadata_create():
-    VagrantBoxMetadata(name = 'test')
+def test_box_metadata_create():
+    BoxMetadata(name = 'test')
 
 
 @pytest.mark.parametrize(
@@ -179,13 +179,13 @@ def test_vagrant_box_metadata_create():
         (Version('1.2', partial = True), None),
     )
 )
-def test_vagrant_box_metadata_version(version_str, expected):
+def test_box_metadata_version(version_str, expected):
     if expected is not None:
-        assert str(VagrantBoxMetadata._parse_version(version_str)) == expected
+        assert str(BoxMetadata._parse_version(version_str)) == expected
 
     else:
-        with pytest.raises(VagrantBoxMetadataException):
-            VagrantBoxMetadata._parse_version(version_str)
+        with pytest.raises(BoxMetadataException):
+            BoxMetadata._parse_version(version_str)
 
 
 @pytest.mark.parametrize(
@@ -197,13 +197,13 @@ def test_vagrant_box_metadata_version(version_str, expected):
         ('https://gist.githubusercontent.com/wamonite/e466b76b7c1eb5a38be6/raw/662b52365715722a3d5e7bb4afa948412b9101b7/metadata.json', True),
     )
 )
-def test_vagrant_box_metadata_download_url(url, expected):
+def test_box_metadata_download_url(url, expected):
     if expected:
-        VagrantBoxMetadata(url)
+        BoxMetadata(url)
 
     else:
-        with pytest.raises(VagrantBoxMetadataException):
-            VagrantBoxMetadata(url)
+        with pytest.raises(BoxMetadataException):
+            BoxMetadata(url)
 
 @pytest.mark.parametrize(
     'version, version_list, insert_expected, match_expected',
@@ -217,10 +217,10 @@ def test_vagrant_box_metadata_download_url(url, expected):
         ('1.0.0', ['1.2.0', '1.1.1', '1.0.0'], None, 2),
     )
 )
-def test_vagrant_box_metadata_get_add_index(version, version_list, insert_expected, match_expected):
-    test_version = VagrantBoxMetadata._parse_version(version)
+def test_box_metadata_get_add_index(version, version_list, insert_expected, match_expected):
+    test_version = BoxMetadata._parse_version(version)
     test_version_list = [Version(val) for val in version_list]
-    insert_at, match_at = VagrantBoxMetadata._get_version_index(test_version, test_version_list)
+    insert_at, match_at = BoxMetadata._get_version_index(test_version, test_version_list)
     assert insert_at == insert_expected
     assert match_at == match_expected
 
@@ -254,8 +254,8 @@ def test_vagrant_box_metadata_get_add_index(version, version_list, insert_expect
         ),
     )
 )
-def test_vagrant_box_metadata_get_provider(provider_name, provider_list, expected_info, expected_list):
-    provider_new = VagrantBoxMetadata._get_provider(provider_name, provider_list)
+def test_box_metadata_get_provider(provider_name, provider_list, expected_info, expected_list):
+    provider_new = BoxMetadata._get_provider(provider_name, provider_list)
     assert provider_new == expected_info
     assert provider_list == expected_list
 
@@ -277,9 +277,9 @@ def test_vagrant_box_metadata_get_provider(provider_name, provider_list, expecte
         ('vmware', 'test3', '456', 'md5'),
     )
 )
-def test_vagrant_box_metadata_add_version(version_list, version_order, provider, url, checksum, checksum_type):
-    metadata = VagrantBoxMetadata(name = 'test')
-    for version_val in [VagrantBoxMetadata._parse_version(val) for val in version_list]:
+def test_box_metadata_add_version(version_list, version_order, provider, url, checksum, checksum_type):
+    metadata = BoxMetadata(name = 'test')
+    for version_val in [BoxMetadata._parse_version(val) for val in version_list]:
         metadata.add_version(version_val, provider, url, checksum, checksum_type)
 
     for index, version_info in enumerate(metadata.versions):

@@ -98,6 +98,11 @@ def read_yaml_string(data):
         return None
 
 
+# def write_yaml_file(data, file_name):
+#     with open(file_name, 'w') as file_object:
+#         yaml.dump(data, file_object, indent = 4, default_flow_style = False)
+
+
 def write_json_file(data, file_name):
     with open(file_name, 'w') as file_object:
         json.dump(data, file_object, indent = 4, sort_keys = True)
