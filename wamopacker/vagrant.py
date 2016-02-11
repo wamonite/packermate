@@ -6,16 +6,55 @@ from urlparse import urlparse
 import requests
 from requests.exceptions import ConnectionError
 import json
-import semantic_version
+from semantic_version import Version
 from .file_utils import write_json_file
 from datetime import datetime
+from .process import run_command, ProcessException
+import re
 import logging
 
 
 log = logging.getLogger('wamopacker.version')
 
 
-__all__ = ['BoxMetadata', 'BoxMetadataException']
+__all__ = ['BoxMetadata', 'BoxMetadataException', 'parse_version']
+
+
+class BoxVersionException(Exception):
+    pass
+
+
+def parse_version(version_val):
+    if not version_val:
+        raise BoxVersionException("Invalid version value: '{}'".format(version_val))
+
+    elif isinstance(version_val, basestring):
+        version_split = version_val.split('.')
+        if len(version_split) > 3:
+            raise BoxVersionException("Invalid number of version elements: '{}'".format(version_val))
+
+        # strip leading zeroes and ensure not a partial version
+        version_parts = map(
+            lambda val: val.lstrip('0') if len(val) > 1 else val,
+            map(
+                lambda element, default: element or default,
+                version_split[:3],
+                ['0'] * 3
+            )
+        )
+        for version_part in version_parts:
+            if not version_part.isdigit():
+                raise BoxVersionException("Pre-release and build versions unsupported: '{}'".format(version_val))
+
+        return Version('.'.join(version_parts))
+
+    elif isinstance(version_val, Version):
+        if version_val.partial or version_val.prerelease or version_val.build:
+            raise BoxVersionException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
+
+        return version_val
+
+    raise BoxVersionException("Unsupported version type: '{}'".format(version_val))
 
 
 class BoxMetadataException(Exception):
@@ -113,7 +152,7 @@ class BoxMetadata(object):
                 raise BoxMetadataException("Version value missing")
 
             version_str = version_lookup['version']
-            version_val = BoxMetadata._parse_version(version_str)
+            version_val = parse_version(version_str)
             provider_info_list = version_lookup.get('providers', [])
 
             parsed_version = {
@@ -128,46 +167,13 @@ class BoxMetadata(object):
         return parsed_list
 
     @staticmethod
-    def _parse_version(version_val):
-        if not version_val:
-            raise BoxMetadataException("Invalid version value: '{}'".format(version_val))
-
-        elif isinstance(version_val, basestring):
-            version_split = version_val.split('.')
-            if len(version_split) > 3:
-                raise BoxMetadataException("Invalid number of version elements: '{}'".format(version_val))
-
-            # strip leading zeroes and ensure not a partial version
-            version_parts = map(
-                lambda val: val.lstrip('0') if len(val) > 1 else val,
-                map(
-                    lambda element, default: element or default,
-                    version_split[:3],
-                    ['0'] * 3
-                )
-            )
-            for version_part in version_parts:
-                if not version_part.isdigit():
-                    raise BoxMetadataException("Pre-release and build versions unsupported: '{}'".format(version_val))
-
-            return semantic_version.Version('.'.join(version_parts))
-
-        elif isinstance(version_val, semantic_version.Version):
-            if version_val.partial or version_val.prerelease or version_val.build:
-                raise BoxMetadataException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
-
-            return version_val
-
-        raise BoxMetadataException("Unsupport version type: '{}'".format(version_val))
-
-    @staticmethod
     def _get_version_index(version_val, version_list):
-        assert isinstance(version_val, semantic_version.Version)
+        assert isinstance(version_val, Version)
 
         insert_at = None
         match_at = None
         for index, list_val in enumerate(version_list):
-            assert isinstance(list_val, semantic_version.Version)
+            assert isinstance(list_val, Version)
 
             if version_val == list_val:
                 match_at = index
@@ -197,7 +203,7 @@ class BoxMetadata(object):
         return provider_new
 
     def add_version(self, version, provider, url, checksum = None, checksum_type = None):
-        version_val = self._parse_version(version)
+        version_val = parse_version(version)
 
         version_list = [val['version'] for val in self.versions]
         insert_at, match_at = self._get_version_index(version_val, version_list)
@@ -236,3 +242,75 @@ class BoxMetadata(object):
 
         except IOError as e:
             raise BoxMetadataException("Failed to write metadata: file='{}' error='{}'".format(file_name, e))
+
+
+class BoxInventoryException(Exception):
+    pass
+
+
+class BoxInventory(object):
+
+    def __init__(self):
+        self._box_lookup = None
+
+    @property
+    def list(self):
+        self._refresh()
+
+        return self._box_lookup or {}
+
+    def _refresh(self):
+        if self._box_lookup is None:
+            try:
+                box_lines = run_command('vagrant box list')
+
+            except ProcessException as e:
+                raise BoxInventoryException("Failed to query installed Vagrant boxes: error='{}'".format(e))
+
+            self._box_lookup = {}
+            for box_line in box_lines.splitlines():
+                match = re.search('^([^\s]+)\s+\(([^,]+),\s+([^\)]+)\)', box_line)
+                if match:
+                    installed_name, installed_provider, installed_version_str = match.groups()
+
+                    try:
+                        installed_version = parse_version(installed_version_str)
+
+                    except BoxVersionException:
+                        pass
+
+                    else:
+                        provider_lookup = self._box_lookup.setdefault(installed_name, {})
+                        version_list = provider_lookup.setdefault(installed_provider, [])
+                        version_list.append(installed_version)
+
+    def _reset(self):
+        self._box_lookup = None
+
+    def installed(self, name, provider, version = None):
+        self._refresh()
+
+        provider_lookup = self._box_lookup.get(name, {})
+        version_list = provider_lookup.get(provider, [])
+
+        if version is None:
+            return bool(version_list)
+
+        version_val = parse_version(version)
+
+        return version_val in version_list
+
+    def install(self, name, provider, version = None):
+        if not self.installed(name, provider, version):
+            command = 'vagrant box add --provider {} {}'.format(provider, name)
+            if version:
+                command += ' --box-version {}'.format(version)
+
+            try:
+                run_command(command)
+
+            except ProcessException as e:
+                raise BoxInventoryException("Failed to install Vagrant box: name='{}' provider='{}' error='{}'".format(name, provider, e))
+
+            finally:
+                self._reset()
