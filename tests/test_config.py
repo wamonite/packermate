@@ -4,7 +4,7 @@
 from __future__ import print_function, unicode_literals
 import pytest
 from wamopacker.config import (
-    Config, ConfigValue,
+    Config, ConfigValue, ConfigProvider,
     ConfigException, ConfigLoadException,
     CONFIG_DEFAULTS, ENV_VAR_PREFIX
 )
@@ -490,3 +490,63 @@ def test_config_print(config_str, expected_str):
         ']'
     ])
     assert config_repr == expected_repr
+
+
+@pytest.mark.parametrize(
+    'provider, key, expected',
+    (
+        ('', 'key1', None),
+        (None, 'key1', 'val1'),
+        (None, 'key2', None),
+        ('aws', 'key1', 'val1'),
+        ('aws', 'key2', None),
+        (None, 'key3', 'val3'),
+        ('aws', 'key3', 'val4'),
+        ('virtualbox', 'key3', 'val3'),
+    )
+)
+def test_config_provider_get(provider, key, expected):
+    config_str = """---
+key1: val1
+key3: val3
+aws_key3: val4
+"""
+    config = Config(config_string = config_str)
+    if provider is not None:
+        if provider:
+            config = config.provider(provider)
+
+        else:
+            with pytest.raises(ConfigException):
+                config.provider(provider)
+
+            return
+
+    assert getattr(config, key) == expected
+
+
+def test_config_provider_set():
+    config_str = """---
+key1: val1
+"""
+    config = Config(config_string = config_str)
+    config_provider = config.provider('aws')
+
+    assert 'key2' not in config
+    assert 'key2' not in config_provider
+
+    config.key2 = 'val2'
+    assert 'key2' in config
+    assert 'key2' in config_provider
+
+    del config_provider.key2
+    assert 'key2' not in config
+    assert 'key2' not in config_provider
+
+    config_provider.key2 = 'val2'
+    assert 'key2' not in config
+    assert 'key2' in config_provider
+
+    del config_provider.key2
+    assert 'key2' not in config
+    assert 'key2' not in config_provider

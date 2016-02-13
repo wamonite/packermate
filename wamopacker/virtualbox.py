@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, unicode_literals
-from .target import TargetBase
+from .target import TargetBase, TargetParameter, parse_parameters
+import os
 import logging
 
 
@@ -14,6 +15,8 @@ __all__ = ['TargetVirtualBox']
 
 class TargetVirtualBox(TargetBase):
 
+    PRESEED_FILE_NAME = 'preseed.cfg'
+
     def build(self):
         if self._config.virtualbox_iso_url:
             log.info('Building ISO configuration')
@@ -24,26 +27,55 @@ class TargetVirtualBox(TargetBase):
             log.info('Building OVF configuration')
 
     def _build_iso(self):
-        pass
+        iso_build_config = self._data_dir.read_json('packer_virtualbox_iso')
 
-    # def _build_virtualbox(self, packer_config, temp_dir):
-    #     if self._config.virtualbox_iso_url and self._config.virtualbox_iso_checksum:
-    #         log.info('Bulding VirtualBox ISO configuration')
-    #
-    #         self._build_virtualbox_iso(packer_config, temp_dir)
-    #
-    #     else:
-    #         log.info('Bulding VirtualBox OVF configuration')
-    #
-    #         if self._config.virtualbox_vagrant_box_url and self._config.virtualbox_vagrant_box_name:
-    #             self._build_virtualbox_vagrant_box_url()
-    #
-    #         if self._config.virtualbox_vagrant_box_name:
-    #             self._build_virtualbox_vagrant_box(temp_dir)
-    #
-    #         if self._config.virtualbox_vagrant_box_file:
-    #             self._build_virtualbox_vagrant_box_file(temp_dir)
-    #
-    #         if self._config.virtualbox_ovf_input_file:
-    #             self._build_virtualbox_ovf_file(packer_config, temp_dir)
-    #
+        param_list = (
+            TargetParameter('virtualbox_ovf_output', 'vm_name'),
+            TargetParameter('virtualbox_iso_url', 'iso_url'),
+            TargetParameter('virtualbox_iso_checksum', 'iso_checksum', required = False),
+            TargetParameter('virtualbox_iso_checksum_type', 'iso_checksum_type', default = 'md5'),
+            TargetParameter('virtualbox_guest_os_type', 'guest_os_type', default = 'Ubuntu_64'),
+            TargetParameter('virtualbox_disk_mb', 'disk_size', required = False),
+            TargetParameter('virtualbox_user', 'ssh_username'),
+            TargetParameter('virtualbox_password', 'ssh_password', default = ''),
+            TargetParameter('virtualbox_shutdown_command', 'shutdown_command', default = "echo '(( virtualbox_password ))' | sudo -S shutdown -P now"),
+            TargetParameter('virtualbox_output_directory', 'output_directory'),
+            TargetParameter('virtualbox_packer_http_dir', 'http_directory', default = 'packer_http'),
+        )
+        parse_parameters(param_list, self._config, iso_build_config)
+
+        vboxmanage_list = iso_build_config.setdefault('vboxmanage', [])
+        for vboxmanage_attr, vboxmanage_cmd in (
+            ('virtualbox_memory_mb', '--memory'),
+            ('virtualbox_cpus', '--cpus'),
+        ):
+            if vboxmanage_attr in self._config:
+                vboxmanage_list.append([
+                    'modifyvm',
+                    '{{ .Name }}',
+                    vboxmanage_cmd,
+                    getattr(self._config, vboxmanage_attr)
+                ])
+
+        self._write_iso_preseed(iso_build_config)
+
+        self._packer_config.add_builder(iso_build_config)
+
+    def _write_iso_preseed(self, output):
+        # create the packer_http directory
+        packer_http_dir = output['http_directory']
+        packer_http_path = os.path.join(self._temp_dir, packer_http_dir)
+        output['http_directory'] = packer_http_path
+        os.mkdir(packer_http_path)
+
+        # generate the preseed text
+        preseed_template = self._data_dir.read_template(self.PRESEED_FILE_NAME)
+        preseed_text = preseed_template.substitute(
+            user_account = output['ssh_username'],
+            user_password = output['ssh_password']
+        )
+
+        # write the preseed
+        preseed_file_name = os.path.join(packer_http_path, self.PRESEED_FILE_NAME)
+        with open(preseed_file_name, 'w') as file_object:
+            file_object.write(preseed_text)

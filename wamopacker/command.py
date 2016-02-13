@@ -14,7 +14,6 @@ from .vagrant import BoxMetadata
 from .virtualbox import TargetVirtualBox
 
 
-PRESEED_FILE_NAME = 'preseed.cfg'
 EXTRACTED_OVF_FILE_NAME = 'box.ovf'
 REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 
@@ -42,6 +41,9 @@ class PackerConfig(object):
 
         return file_name_full
 
+    def add_builder(self, builder_config):
+        self._config['builders'].append(builder_config)
+
 
 class BuilderException(Exception):
     pass
@@ -59,7 +61,6 @@ class Builder(object):
         self._dry_run = dry_run
         self._dump_packer = dump_packer
         self._vagrant_box_metadata = None
-
         self._data_dir = DataDir()
 
     def _load_vagrant_box_url(self):
@@ -89,7 +90,7 @@ class Builder(object):
                 if not target_class:
                     raise BuilderException('Unknown target: {}'.format(target_name))
 
-                target = target_class(self._config, packer_config, temp_dir)
+                target = target_class(self._config, self._data_dir, packer_config, temp_dir)
                 target.build()
 
             # self._add_provisioners(packer_config)
