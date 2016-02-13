@@ -17,7 +17,7 @@ COMMAND_LOOKUP = OrderedDict([
     ('aws', ('build', 'aws')),
     ('all', ('build', 'virtualbox', 'aws')),
 ])
-LOG_FORMAT = '%(asctime)s %(name)s[%(process)s] %(levelname)s: %(message)s'
+LOG_FORMAT = '%(name)s %(levelname)s: %(message)s'
 LOG_FORMAT_DATE = '%Y-%m-%d %H:%M:%S'
 LOG_LEVEL = logging.INFO
 

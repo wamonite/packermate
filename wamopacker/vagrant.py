@@ -14,10 +14,10 @@ import re
 import logging
 
 
-log = logging.getLogger('wamopacker.version')
+log = logging.getLogger('wamopacker.vagrant')
 
 
-__all__ = ['BoxMetadata', 'BoxMetadataException', 'parse_version']
+__all__ = ['BoxMetadata', 'BoxMetadataException', 'parse_version', 'BoxInventory', 'BoxInventoryException']
 
 
 class BoxVersionException(Exception):

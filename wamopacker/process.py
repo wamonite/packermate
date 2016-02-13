@@ -70,13 +70,13 @@ def stream_subprocess(command_list, quiet = False, working_dir = None, out_to_fi
         if process.poll() is not None:
             break
 
-    output_std = '' if out_to_file else file_std.getvalue()
-    output_err = file_err.getvalue()
+    log_stdout = '' if out_to_file else file_std.getvalue()
+    log_stderr = file_err.getvalue()
 
     file_std.close()
     file_err.close()
 
-    return output_std, output_err, process.returncode
+    return log_stdout, log_stderr, process.returncode
 
 
 def run_command(command, quiet = False, working_dir = None, out_to_file = None):
@@ -84,7 +84,7 @@ def run_command(command, quiet = False, working_dir = None, out_to_file = None):
         log.debug('{}{}'.format(command, ' > {}'.format(out_to_file) if out_to_file else ''))
 
     command_list = shlex.split(command)
-    output_std, output_err, exit_code = stream_subprocess(
+    log_stdout, log_stderr, exit_code = stream_subprocess(
         command_list,
         quiet = quiet,
         working_dir = working_dir,
@@ -94,9 +94,9 @@ def run_command(command, quiet = False, working_dir = None, out_to_file = None):
     if exit_code != 0:
         ex_message = 'Error running command ({}) exit code ({})'.format(command, exit_code)
         ex = ProcessException(ex_message)
-        ex.output_std = output_std
-        ex.output_err = output_err
+        ex.log_stdout = log_stdout
+        ex.log_stderr = log_stderr
         ex.exit_code = exit_code
         raise ex
 
-    return output_std.splitlines()
+    return log_stdout.splitlines()
