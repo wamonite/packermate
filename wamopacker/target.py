@@ -2,6 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, unicode_literals
+from .vagrant import BoxInventory
+
+
+class TargetException(Exception):
+    pass
 
 
 class TargetBase(object):
@@ -11,6 +16,7 @@ class TargetBase(object):
         self._data_dir = data_dir
         self._packer_config = packer_config
         self._temp_dir = temp_dir
+        self._box_inventory = BoxInventory()
 
     def build(self):
         raise NotImplementedError()

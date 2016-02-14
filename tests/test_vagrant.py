@@ -10,6 +10,7 @@ from wamopacker.vagrant import (
     BoxVersionException,
     BoxInventory,
     BoxInventoryException,
+    get_version_index,
 )
 import json
 import os
@@ -231,7 +232,7 @@ def test_box_metadata_download_url(url, expected):
 def test_box_metadata_get_add_index(version, version_list, insert_expected, match_expected):
     test_version = parse_version(version)
     test_version_list = [Version(val) for val in version_list]
-    insert_at, match_at = BoxMetadata._get_version_index(test_version, test_version_list)
+    insert_at, match_at = get_version_index(test_version, test_version_list)
     assert insert_at == insert_expected
     assert match_at == match_expected
 
@@ -365,7 +366,7 @@ def test_box_metadata_add_version(version_list, version_order, provider, url, ch
 def mock_box_list(request):
     command_output, expected = request.param
 
-    def run_command_side_effect(run_command):
+    def run_command_side_effect(run_command, *args, **kwargs):
         if run_command.startswith('vagrant box list'):
             if command_output is None:
                 raise ProcessException('error')
@@ -407,13 +408,13 @@ def test_box_inventory_installed(mock_box_list):
         for provider in ('aws', 'virtualbox', 'unknown'):
             print('check installed: missing-box {}'.format(provider))
 
-            assert inventory.installed('missing-box', provider) == False
+            assert not inventory.installed('missing-box', provider)
 
             print('check installed: {} {}'.format(box_name, provider))
 
             result = inventory.installed(box_name, provider)
             version_list = box_lookup.get(provider, [])
-            assert result == bool(version_list)
+            assert result == (version_list[0] if version_list else None)
 
             for version in (Version('0.0.0'), Version('1.0.0'), 'test', 123):
                 print('check installed: {} {} {}'.format(box_name, provider, version))
@@ -447,7 +448,7 @@ def mock_box_add(request):
         def add_line(self, line):
             self._line_list.append(line)
 
-        def run_command_side_effect(self, run_command):
+        def run_command_side_effect(self, run_command, *args, **kwargs):
             if run_command.startswith('vagrant box add'):
                 if run_ok:
                     command_split = run_command.split(' ')

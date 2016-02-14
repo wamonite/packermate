@@ -15,7 +15,6 @@ from .virtualbox import TargetVirtualBox
 
 
 EXTRACTED_OVF_FILE_NAME = 'box.ovf'
-REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 
 
 log = logging.getLogger('wamopacker.command')
@@ -78,8 +77,6 @@ class Builder(object):
         return self._vagrant_box_metadata.versions if self._vagrant_box_metadata else {}
 
     def build(self):
-        self._load_vagrant_box_url()
-
         packer_config = PackerConfig()
 
         with TempDir(self._config.temp_dir) as temp_dir_object:
@@ -109,6 +106,8 @@ class Builder(object):
             if not self._dry_run:
                 self._run_packer(packer_config_file_name)
 
+            log.info('Build complete')
+
     @staticmethod
     def _dump_packer_config(packer_config):
         packer_dump_file_name = packer_config.write()
@@ -137,7 +136,7 @@ class Builder(object):
             raise BuilderException('No Packer command set')
 
         try:
-            log.info('Running Packer configuration')
+            log.info('Building Packer configuration')
             run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name), quiet = True)
 
         except ProcessException as e:
@@ -166,52 +165,6 @@ class Builder(object):
     #
     #         if self._config.virtualbox_ovf_input_file:
     #             self._build_virtualbox_ovf_file(packer_config, temp_dir)
-    #
-    # def _get_installed_vagrant_box_version(self, search_name, search_provider):
-    #     if self._box_lookup is None:
-    #         box_lines = run_command('vagrant box list')
-    #
-    #         self._box_lookup = {}
-    #         for box_line in box_lines:
-    #             match = re.search('^([^\s]+)\s+\(([^,]+),\s+([^\)]+)\)', box_line)
-    #             if match:
-    #                 installed_name, installed_provider, installed_version_str = match.groups()
-    #
-    #                 try:
-    #                     installed_version = Version(installed_version_str)
-    #
-    #                 except ValueError:
-    #                     installed_version = None
-    #
-    #                 provider_lookup = self._box_lookup.setdefault(installed_name, {})
-    #                 version_current = provider_lookup.get(installed_provider)
-    #                 if version_current is None or version_current < installed_version:
-    #                     provider_lookup[installed_provider] = installed_version
-    #
-    #     box_info = self._box_lookup.get(search_name, {})
-    #     if search_provider not in box_info:
-    #         raise BuilderException('Unable to find installed Vagrant box: {} {}'.format(
-    #             search_provider,
-    #             self._config.virtualbox_vagrant_box_name
-    #         ))
-    #
-    #     return box_info.get(search_provider) or 0
-    #
-    # def _build_virtualbox_vagrant_box_url(self):
-    #     log.info('Installing VirtualBox Vagrant box')
-    #
-    #     try:
-    #         # throws exception if not installed
-    #         self._get_installed_vagrant_box_version(self._config.virtualbox_vagrant_box_name, 'virtualbox')
-    #         return
-    #
-    #     except BuilderException:
-    #         pass
-    #
-    #     box_add_command = 'vagrant box add --provider virtualbox {}'.format(self._config.virtualbox_vagrant_box_url)
-    #     run_command(box_add_command)
-    #
-    #     self._box_lookup = None
     #
     # def _build_virtualbox_ovf_file(self, packer_config, temp_dir):
     #     packer_virtualbox_ovf = self._data_dir.read_json('packer_virtualbox_ovf')

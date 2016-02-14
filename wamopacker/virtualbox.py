@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, unicode_literals
-from .target import TargetBase, TargetParameter, parse_parameters
+from .target import TargetBase, TargetException, TargetParameter, parse_parameters
 import os
 import logging
 
@@ -13,9 +13,18 @@ log = logging.getLogger('wamopacker.virtualbox')
 __all__ = ['TargetVirtualBox']
 
 
+class TargetVirtualBoxException(TargetException):
+    pass
+
+
 class TargetVirtualBox(TargetBase):
 
     PRESEED_FILE_NAME = 'preseed.cfg'
+
+    def __init__(self, *args, **kwargs):
+        super(TargetVirtualBox, self).__init__(*args, **kwargs)
+
+        self._config = self._config.provider('virtualbox')
 
     def build(self):
         if self._config.virtualbox_iso_url:
@@ -26,18 +35,22 @@ class TargetVirtualBox(TargetBase):
         else:
             log.info('Building OVF configuration')
 
+            self._build_from_vagrant_box_url()
+
+            self._build_from_vagrant_box()
+
     def _build_iso(self):
         iso_build_config = self._data_dir.read_json('packer_virtualbox_iso')
 
         param_list = (
             TargetParameter('virtualbox_ovf_output', 'vm_name'),
             TargetParameter('virtualbox_iso_url', 'iso_url'),
-            TargetParameter('virtualbox_iso_checksum', 'iso_checksum', required = False),
+            TargetParameter('virtualbox_iso_checksum', 'iso_checksum'),
             TargetParameter('virtualbox_iso_checksum_type', 'iso_checksum_type', default = 'md5'),
             TargetParameter('virtualbox_guest_os_type', 'guest_os_type', default = 'Ubuntu_64'),
             TargetParameter('virtualbox_disk_mb', 'disk_size', required = False),
-            TargetParameter('virtualbox_user', 'ssh_username'),
-            TargetParameter('virtualbox_password', 'ssh_password', default = ''),
+            TargetParameter('ssh_user', 'ssh_username'),
+            TargetParameter('ssh_password', 'ssh_password'),
             TargetParameter('virtualbox_shutdown_command', 'shutdown_command', default = "echo '(( virtualbox_password ))' | sudo -S shutdown -P now"),
             TargetParameter('virtualbox_output_directory', 'output_directory'),
             TargetParameter('virtualbox_packer_http_dir', 'http_directory', default = 'packer_http'),
@@ -79,3 +92,34 @@ class TargetVirtualBox(TargetBase):
         preseed_file_name = os.path.join(packer_http_path, self.PRESEED_FILE_NAME)
         with open(preseed_file_name, 'w') as file_object:
             file_object.write(preseed_text)
+
+    def _build_from_vagrant_box_url(self):
+        if 'vagrant_box_name' not in self._config:
+            return
+
+        box_url = self._config.vagrant_box_url or self._config.vagrant_box_name
+        box_version = self._config.vagrant_box_version
+
+        log.info('Checking for local Vagrant box: {} {}'.format(self._config.vagrant_box_name, box_version or ''))
+        if not self._box_inventory.installed(self._config.vagrant_box_name, 'virtualbox', box_version):
+            log.info('Installing Vagrant box: {} {}'.format(box_url, box_version))
+            self._box_inventory.install(box_url, 'virtualbox', box_version)
+
+    def _build_from_vagrant_box(self):
+        if 'vagrant_box_name' not in self._config:
+            return
+
+        box_version = self._config.vagrant_box_version
+        if not box_version:
+            box_version = self._box_inventory.installed(self._config.vagrant_box_name, 'virtualbox')
+
+        log.info('Extracting installed Vagrant box: {} {}'.format(self._config.vagrant_box_name, box_version or ''))
+
+        box_file_name = self._box_inventory.export(
+            self._temp_dir,
+            self._config.vagrant_box_name,
+            'virtualbox',
+            box_version
+        )
+
+        self._config.virtualbox_vagrant_box_file = box_file_name

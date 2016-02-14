@@ -11,6 +11,7 @@ from .file_utils import write_json_file
 from datetime import datetime
 from .process import run_command, ProcessException
 import re
+import os
 import logging
 
 
@@ -56,6 +57,25 @@ def parse_version(version_val):
                 raise BoxVersionException("Pre-release and build versions unsupported: '{}'".format(version_val))
 
         return Version('.'.join(version_parts))
+
+
+def get_version_index(version_val, version_list):
+    assert isinstance(version_val, Version)
+
+    insert_at = None
+    match_at = None
+    for index, list_val in enumerate(version_list):
+        assert isinstance(list_val, Version)
+
+        if version_val == list_val:
+            match_at = index
+            break
+
+        if version_val > list_val:
+            insert_at = index
+            break
+
+    return insert_at, match_at
 
 
 class BoxMetadataException(Exception):
@@ -168,25 +188,6 @@ class BoxMetadata(object):
         return parsed_list
 
     @staticmethod
-    def _get_version_index(version_val, version_list):
-        assert isinstance(version_val, Version)
-
-        insert_at = None
-        match_at = None
-        for index, list_val in enumerate(version_list):
-            assert isinstance(list_val, Version)
-
-            if version_val == list_val:
-                match_at = index
-                break
-
-            if version_val > list_val:
-                insert_at = index
-                break
-
-        return insert_at, match_at
-
-    @staticmethod
     def _get_provider(provider_name, provider_list):
         provider_new = None
         for provider_info in provider_list:
@@ -207,7 +208,7 @@ class BoxMetadata(object):
         version_val = parse_version(version)
 
         version_list = [val['version'] for val in self.versions]
-        insert_at, match_at = self._get_version_index(version_val, version_list)
+        insert_at, match_at = get_version_index(version_val, version_list)
 
         time_now = datetime.utcnow()
         time_str = time_now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -251,6 +252,8 @@ class BoxInventoryException(Exception):
 
 class BoxInventory(object):
 
+    REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
+
     def __init__(self):
         self._box_lookup = None
 
@@ -263,7 +266,7 @@ class BoxInventory(object):
     def _refresh(self):
         if self._box_lookup is None:
             try:
-                box_lines = run_command('vagrant box list')
+                box_lines = run_command('vagrant box list', quiet = True)
 
             except ProcessException as e:
                 raise BoxInventoryException("Failed to query installed Vagrant boxes: error='{}'".format(e))
@@ -283,7 +286,13 @@ class BoxInventory(object):
                     else:
                         provider_lookup = self._box_lookup.setdefault(installed_name, {})
                         version_list = provider_lookup.setdefault(installed_provider, [])
-                        version_list.append(installed_version)
+                        insert_at, match_at = get_version_index(installed_version, version_list)
+                        if not match_at:
+                            if insert_at is not None:
+                                version_list.insert(insert_at, installed_version)
+
+                            else:
+                                version_list.append(installed_version)
 
     def _reset(self):
         self._box_lookup = None
@@ -295,7 +304,7 @@ class BoxInventory(object):
         version_list = provider_lookup.get(provider, [])
 
         if version is None:
-            return bool(version_list)
+            return version_list[0] if version_list else None
 
         version_val = parse_version(version)
 
@@ -315,3 +324,18 @@ class BoxInventory(object):
 
             finally:
                 self._reset()
+
+    def export(self, temp_dir, name, provider, version = None):
+        if self.installed(name, provider, version):
+            command = "vagrant box repackage {} {} {}".format(name, provider, version)
+
+            try:
+                run_command(command, working_dir = temp_dir)
+
+            except ProcessException as e:
+                raise BoxInventoryException("Failed to export Vagrant box: name='{}' provider='{}' error='{}'".format(name, provider, e))
+
+            return os.path.join(temp_dir, self.REPACKAGED_VAGRANT_BOX_FILE_NAME)
+
+        else:
+            raise BoxInventoryException("Vagrant box is not installed: name='{}' provider='{}'".format(name, provider))
