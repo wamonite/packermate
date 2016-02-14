@@ -22,12 +22,21 @@ class TargetParameterException(Exception):
 
 class TargetParameter(object):
 
-    def __init__(self, config_key, output_key, required = True, value_type = basestring, default = None):
+    def __init__(
+            self,
+            config_key,
+            output_key,
+            required = True,
+            value_type = basestring,
+            default = None,
+            only_if = None,
+    ):
         self.config_key = config_key
         self.output_key = output_key
         self.required = required
         self.value_type = value_type
         self.default = default
+        self.only_if = only_if
 
 
 def parse_parameters(param_list, config, output):
@@ -39,11 +48,7 @@ def parse_parameters(param_list, config, output):
                 val = param.default
 
             else:
-                if param.required:
-                    raise TargetParameterException('Missing required config key: {}'.format(param.config_key))
-
-                else:
-                    continue
+                continue
 
         else:
             val = getattr(config, param.config_key)
@@ -56,3 +61,10 @@ def parse_parameters(param_list, config, output):
             )
 
         output[param.output_key] = val
+
+    for param in param_list:
+        if param.only_if and param.output_key in output and param.only_if not in output:
+            del output[param.output_key]
+
+        elif param.required and param.output_key not in output:
+            raise TargetParameterException('Missing required config key: {}'.format(param.config_key))

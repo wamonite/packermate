@@ -10,14 +10,52 @@ from wamopacker.config import Config
 @pytest.mark.parametrize(
     'param_list, expected',
     (
-        ([TargetParameter('key1', 'out1')], {'out1': 'val1'}),
-        ([TargetParameter('key2', 'out2')], None),
-        ([TargetParameter('key2', 'out2', required = False)], {}),
-        ([TargetParameter('key2', 'out2', default = 'val2')], {'out2': 'val2'}),
-        ([TargetParameter('key2', 'out2', required = False, default = 'val2')], {'out2': 'val2'}),
-        ([TargetParameter('key1', 'out1', value_type = list)], None),
-        ([TargetParameter('list1', 'out3', value_type = list)], {'out3': ['val3', 'val4']}),
-        ([TargetParameter('list2', 'out4', default = [], value_type = list)], {'out4': []}),
+        (
+            [TargetParameter('key1', 'out1')],
+            {'out1': 'val1'}
+        ),
+        (
+            [TargetParameter('key2', 'out2')],
+            None
+        ),
+        (
+            [TargetParameter('key2', 'out2', required = False)],
+            {}
+        ),
+        (
+            [TargetParameter('key2', 'out2', default = 'val2')],
+            {'out2': 'val2'}
+        ),
+        (
+            [TargetParameter('key2', 'out2', required = False, default = 'val2')],
+            {'out2': 'val2'}
+        ),
+        (
+            [TargetParameter('key1', 'out1', value_type = list)],
+            None
+        ),
+        (
+            [TargetParameter('list1', 'out3', value_type = list)],
+            {'out3': ['val3', 'val4']}
+        ),
+        (
+            [TargetParameter('list2', 'out4', default = [], value_type = list)],
+            {'out4': []}
+        ),
+        (
+            [
+                TargetParameter('key1', 'out1', only_if = 'out2'),
+                TargetParameter('key2', 'out2', required = False),
+            ],
+            {}
+        ),
+        (
+            [
+                TargetParameter('key1', 'out1', only_if = 'out2'),
+                TargetParameter('key2', 'out2', default = 'val2'),
+            ],
+            {'out1': 'val1', 'out2': 'val2'}
+        ),
     )
 )
 def test_target_parameters(param_list, expected):
