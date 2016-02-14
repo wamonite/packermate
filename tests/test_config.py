@@ -550,3 +550,11 @@ key1: val1
     del config_provider.key2
     assert 'key2' not in config
     assert 'key2' not in config_provider
+
+    config_provider.aws_key2 = 'val2'
+    assert 'aws_key2' in config
+    assert 'aws_key2' in config_provider
+
+    del config_provider.aws_key2
+    assert 'aws_key2' not in config
+    assert 'aws_key2' not in config_provider

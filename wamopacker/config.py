@@ -462,7 +462,11 @@ class ConfigProvider(object):
         self._prefix = self._provider + '_'
 
     def __getattr__(self, item):
-        val = getattr(self._config, self._prefix + item)
+        val = None
+
+        if not item.startswith(self._prefix):
+            val = getattr(self._config, self._prefix + item)
+
         if val is None:
             val = getattr(self._config, item)
 
@@ -473,13 +477,23 @@ class ConfigProvider(object):
             super(ConfigProvider, self).__setattr__(item, value)
 
         else:
-            return setattr(self._config, self._prefix + item, value)
+            if item.startswith(self._prefix):
+                return setattr(self._config, item, value)
+
+            else:
+                return setattr(self._config, self._prefix + item, value)
 
     def __contains__(self, item):
-        return self._prefix + item in self._config or item in self._config
+        if item.startswith(self._prefix):
+            return item in self._config
+
+        else:
+            return self._prefix + item in self._config or item in self._config
 
     def __delattr__(self, item):
-        if self._prefix + item in self._config:
-            delattr(self._config, self._prefix + item)
+        if not item.startswith(self._prefix):
+            if self._prefix + item in self._config:
+                delattr(self._config, self._prefix + item)
+
         if item in self._config:
             delattr(self._config, item)
