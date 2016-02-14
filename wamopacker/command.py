@@ -4,14 +4,11 @@
 from __future__ import print_function, unicode_literals
 import os
 from .process import run_command, ProcessException
-import re
-import json
-import logging
-from datetime import datetime
-from semantic_version import Version
-from .file_utils import TempDir, DataDir, get_md5_sum, write_json_file
+from .file_utils import TempDir, DataDir, write_json_file
 from .vagrant import BoxMetadata
 from .virtualbox import TargetVirtualBox
+from .aws import TargetAWS
+import logging
 
 
 log = logging.getLogger('wamopacker.command')
@@ -48,7 +45,8 @@ class BuilderException(Exception):
 class Builder(object):
 
     TARGET_LOOKUP = {
-        'virtualbox': TargetVirtualBox
+        'virtualbox': TargetVirtualBox,
+        'aws': TargetAWS,
     }
 
     def __init__(self, config, target_list, dry_run = False, dump_packer = False):
