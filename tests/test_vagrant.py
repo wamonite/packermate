@@ -173,11 +173,12 @@ def test_box_metadata_create():
     (
         ('', None),
         ('a', None),
-        (1, None),
         ('0', '0.0.0'),
         ('0.1', '0.1.0'),
         ('0.0.1', '0.0.1'),
         ('01.02.03', '1.2.3'),
+        (1, '1.0.0'),
+        (1.02, '1.2.0'),
         ('1.2.3.4', None),
         ('1.2.3-', None),
         ('1.2.3-4', None),
@@ -362,15 +363,15 @@ def test_box_metadata_add_version(version_list, version_order, provider, url, ch
     )
 )
 def mock_box_list(request):
-    comman_output, expected = request.param
+    command_output, expected = request.param
 
     def run_command_side_effect(run_command):
         if run_command.startswith('vagrant box list'):
-            if comman_output is None:
+            if command_output is None:
                 raise ProcessException('error')
 
             else:
-                return comman_output
+                return command_output.splitlines()
 
         else:
             raise ValueError(run_command)
@@ -441,7 +442,7 @@ def mock_box_add(request):
             self._line_list = []
 
         def get_text(self):
-            return '\n'.join(self._line_list)
+            return self._line_list
 
         def add_line(self, line):
             self._line_list.append(line)

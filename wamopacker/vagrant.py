@@ -28,7 +28,16 @@ def parse_version(version_val):
     if not version_val:
         raise BoxVersionException("Invalid version value: '{}'".format(version_val))
 
-    elif isinstance(version_val, basestring):
+    elif isinstance(version_val, Version):
+        if version_val.partial or version_val.prerelease or version_val.build:
+            raise BoxVersionException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
+
+        return version_val
+
+    else:
+        if not isinstance(version_val, basestring):
+            version_val = str(version_val)
+
         version_split = version_val.split('.')
         if len(version_split) > 3:
             raise BoxVersionException("Invalid number of version elements: '{}'".format(version_val))
@@ -47,14 +56,6 @@ def parse_version(version_val):
                 raise BoxVersionException("Pre-release and build versions unsupported: '{}'".format(version_val))
 
         return Version('.'.join(version_parts))
-
-    elif isinstance(version_val, Version):
-        if version_val.partial or version_val.prerelease or version_val.build:
-            raise BoxVersionException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
-
-        return version_val
-
-    raise BoxVersionException("Unsupported version type: '{}'".format(version_val))
 
 
 class BoxMetadataException(Exception):
@@ -268,7 +269,7 @@ class BoxInventory(object):
                 raise BoxInventoryException("Failed to query installed Vagrant boxes: error='{}'".format(e))
 
             self._box_lookup = {}
-            for box_line in box_lines.splitlines():
+            for box_line in box_lines:
                 match = re.search('^([^\s]+)\s+\(([^,]+),\s+([^\)]+)\)', box_line)
                 if match:
                     installed_name, installed_provider, installed_version_str = match.groups()
