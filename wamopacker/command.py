@@ -102,10 +102,17 @@ class Builder(object):
             # self._update_vagrant_version()
 
             if self._dump_packer:
-                packer_dump_file_name = packer_config.write()
-                log.info("Dumped Packer configuration to '{}'".format(packer_dump_file_name))
+                self._dump_packer_config(packer_config)
 
-            self._validate_packer(packer_config, temp_dir)
+            packer_config_file_name = self._validate_packer(packer_config, temp_dir)
+
+            if not self._dry_run:
+                self._run_packer(packer_config_file_name)
+
+    @staticmethod
+    def _dump_packer_config(packer_config):
+        packer_dump_file_name = packer_config.write()
+        log.info("Dumped Packer configuration to '{}'".format(packer_dump_file_name))
 
     def _validate_packer(self, packer_config, temp_dir_path):
         if not self._config.packer_command:
@@ -118,27 +125,27 @@ class Builder(object):
             run_command('{} validate {}'.format(self._config.packer_command, file_name), quiet = True)
 
         except ProcessException as e:
-            error_list = [line for line in e.log_stdout.splitlines() if line.startswith('* ')]
-            raise BuilderException('Failed to validate Packer configuration:-\n{}'.format('\n'.join(error_list)))
+            raise BuilderException('Failed to validate Packer configuration:-\n{}'.format(e.log_stdout))
 
         except OSError as e:
             raise BuilderException('Failed to validate Packer configuration: {}'.format(e))
 
-    # def _parse_parameters(self, config_key_list, output_lookup):
-    #     for config_item in config_key_list:
-    #         config_key, output_key, output_type = map(
-    #             lambda default, val: val if val is not None else default,
-    #             (None, None, basestring),
-    #             config_item
-    #         )
-    #         if config_key in self._config:
-    #             val = getattr(self._config, config_key)
-    #
-    #             if not isinstance(val, output_type):
-    #                 raise BuilderException('Parameter type mismatch: name={} expected={} received={}'.format(config_key, output_type, type(val)))
-    #
-    #             output_lookup[output_key] = val
-    #
+        return file_name
+
+    def _run_packer(self, packer_config_file_name):
+        if not self._config.packer_command:
+            raise BuilderException('No Packer command set')
+
+        try:
+            log.info('Running Packer configuration')
+            run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name), quiet = True)
+
+        except ProcessException as e:
+            raise BuilderException('Failed to build Packer configuration:-\n{}'.format(e.log_stdout))
+
+        except OSError as e:
+            raise BuilderException('Failed to build Packer configuration: {}'.format(e))
+
     # def _build_virtualbox(self, packer_config, temp_dir):
     #     if self._config.virtualbox_iso_url and self._config.virtualbox_iso_checksum:
     #         log.info('Bulding VirtualBox ISO configuration')
@@ -159,55 +166,6 @@ class Builder(object):
     #
     #         if self._config.virtualbox_ovf_input_file:
     #             self._build_virtualbox_ovf_file(packer_config, temp_dir)
-    #
-    # def _build_virtualbox_iso(self, packer_config, temp_dir):
-    #     packer_virtualbox_iso = self._data_dir.read_json('packer_virtualbox_iso')
-    #
-    #     config_key_list = (
-    #         ('virtualbox_ovf_output', 'vm_name'),
-    #         ('virtualbox_iso_url', 'iso_url'),
-    #         ('virtualbox_iso_checksum', 'iso_checksum'),
-    #         ('virtualbox_iso_checksum_type', 'iso_checksum_type'),
-    #         ('virtualbox_guest_os_type', 'guest_os_type'),
-    #         ('virtualbox_disk_mb', 'disk_size'),
-    #         ('virtualbox_user', 'ssh_username'),
-    #         ('virtualbox_password', 'ssh_password'),
-    #         ('virtualbox_shutdown_command', 'shutdown_command'),
-    #         ('virtualbox_output_directory', 'output_directory'),
-    #     )
-    #     self._parse_parameters(config_key_list, packer_virtualbox_iso)
-    #
-    #     vboxmanage_list = packer_virtualbox_iso.setdefault('vboxmanage', [])
-    #     for vboxmanage_attr, vboxmanage_cmd in (
-    #             ('virtualbox_memory_mb', '--memory'),
-    #             ('virtualbox_cpus', '--cpus'),
-    #     ):
-    #         if vboxmanage_attr in self._config:
-    #             vboxmanage_list.append(['modifyvm', '{{ .Name }}', vboxmanage_cmd, getattr(self._config, vboxmanage_attr)])
-    #
-    #     self._write_virtualbox_iso_preseed(packer_virtualbox_iso, temp_dir)
-    #
-    #     # add to the builder list
-    #     packer_config['builders'].append(packer_virtualbox_iso)
-    #
-    # def _write_virtualbox_iso_preseed(self, virtualbox_config, temp_dir):
-    #     # create the packer_http directory
-    #     packer_http_dir = self._config.virtualbox_packer_http_dir
-    #     packer_http_path = os.path.join(temp_dir.path, packer_http_dir)
-    #     virtualbox_config['http_directory'] = packer_http_path
-    #     os.mkdir(packer_http_path)
-    #
-    #     # generate the preseed text
-    #     preseed_template = self._data_dir.read_template(PRESEED_FILE_NAME)
-    #     preseed_text = preseed_template.substitute(
-    #         user_account = virtualbox_config['ssh_username'],
-    #         user_password = virtualbox_config['ssh_password']
-    #     )
-    #
-    #     # write the preseed
-    #     preseed_file_name = os.path.join(packer_http_path, PRESEED_FILE_NAME)
-    #     with open(preseed_file_name, 'w') as file_object:
-    #         file_object.write(preseed_text)
     #
     # def _get_installed_vagrant_box_version(self, search_name, search_provider):
     #     if self._box_lookup is None:
@@ -512,29 +470,6 @@ class Builder(object):
     #             vagrant_config['keep_input_artifact'] = True
     #
     #         packer_config['post-processors'].append(vagrant_config)
-    #
-    # def _run_packer(self, packer_config, temp_dir):
-    #     if self._dump_packer:
-    #         log.info("Dumping Packer configuration to '{}'".format(self.PACKER_CONFIG_FILE_NAME))
-    #         write_json_file(packer_config, self.PACKER_CONFIG_FILE_NAME)
-    #
-    #     packer_config_file_name = os.path.join(temp_dir.path, self.PACKER_CONFIG_FILE_NAME)
-    #     write_json_file(packer_config, packer_config_file_name)
-    #
-    #     try:
-    #         log.info('Validating Packer configuration')
-    #         run_command('{} validate {}'.format(self._config.packer_command, packer_config_file_name))
-    #
-    #     except (ProcessException, OSError) as e:
-    #         raise BuilderException('Failed to validate Packer configuration: {}'.format(e))
-    #
-    #     if not self._dry_run:
-    #         try:
-    #             log.info('Building Packer configuration')
-    #             run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name))
-    #
-    #         except (ProcessException, OSError) as e:
-    #             raise BuilderException('Failed to build Packer configuration: {}'.format(e))
     #
     # def _update_vagrant_version(self, validate_only = False):
     #     if self._dry_run:
