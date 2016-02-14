@@ -39,6 +39,10 @@ class TargetVirtualBox(TargetBase):
 
             self._build_from_vagrant_box()
 
+            self._build_from_vagrant_box_file()
+
+            self._build_from_ovf_file()
+
     def _build_iso(self):
         iso_build_config = self._data_dir.read_json('packer_virtualbox_iso')
 
@@ -113,7 +117,7 @@ class TargetVirtualBox(TargetBase):
         if not box_version:
             box_version = self._box_inventory.installed(self._config.vagrant_box_name, 'virtualbox')
 
-        log.info('Extracting installed Vagrant box: {} {}'.format(self._config.vagrant_box_name, box_version or ''))
+        log.info('Exporting installed Vagrant box: {} {}'.format(self._config.vagrant_box_name, box_version or ''))
 
         box_file_name = self._box_inventory.export(
             self._temp_dir,
@@ -123,3 +127,35 @@ class TargetVirtualBox(TargetBase):
         )
 
         self._config.virtualbox_vagrant_box_file = box_file_name
+
+    def _build_from_vagrant_box_file(self):
+        if 'virtualbox_vagrant_box_file' not in self._config:
+            return
+
+        log.info('Extracting VirtualBox OVF file from Vagrant box')
+
+        self._config.virtualbox_ovf_input_file = self._box_inventory.extract(
+            self._config.virtualbox_vagrant_box_file,
+            self._temp_dir,
+            'virtualbox',
+        )
+
+    def _build_from_ovf_file(self):
+        if 'virtualbox_ovf_input_file' not in self._config:
+            return
+
+        log.info('Building from VirtualBox OVF file')
+
+        packer_virtualbox_ovf = self._data_dir.read_json('packer_virtualbox_ovf')
+
+        param_list = (
+            TargetParameter('virtualbox_ovf_output', 'vm_name'),
+            TargetParameter('ssh_user', 'ssh_username'),
+            TargetParameter('ssh_password', 'ssh_password'),
+            TargetParameter('ssh_key_file', 'ssh_key_path'),  # https://github.com/mitchellh/packer/issues/2428
+            TargetParameter('virtualbox_ovf_input_file', 'source_path'),
+            TargetParameter('virtualbox_output_directory', 'output_directory'),
+        )
+        parse_parameters(param_list, self._config, packer_virtualbox_ovf)
+
+        self._packer_config.add_builder(packer_virtualbox_ovf)

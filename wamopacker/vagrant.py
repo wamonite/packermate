@@ -15,6 +15,10 @@ import os
 import logging
 
 
+REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
+EXTRACTED_OVF_FILE_NAME = 'box.ovf'
+
+
 log = logging.getLogger('wamopacker.vagrant')
 
 
@@ -252,8 +256,6 @@ class BoxInventoryException(Exception):
 
 class BoxInventory(object):
 
-    REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
-
     def __init__(self):
         self._box_lookup = None
 
@@ -320,7 +322,11 @@ class BoxInventory(object):
                 run_command(command)
 
             except ProcessException as e:
-                raise BoxInventoryException("Failed to install Vagrant box: name='{}' provider='{}' error='{}'".format(name, provider, e))
+                raise BoxInventoryException("Failed to install Vagrant box: name='{}' provider='{}' error='{}'".format(
+                    name,
+                    provider,
+                    e
+                ))
 
             finally:
                 self._reset()
@@ -333,9 +339,31 @@ class BoxInventory(object):
                 run_command(command, working_dir = temp_dir)
 
             except ProcessException as e:
-                raise BoxInventoryException("Failed to export Vagrant box: name='{}' provider='{}' error='{}'".format(name, provider, e))
+                raise BoxInventoryException("Failed to export Vagrant box: name='{}' provider='{}' error='{}'".format(
+                    name,
+                    provider,
+                    e
+                ))
 
-            return os.path.join(temp_dir, self.REPACKAGED_VAGRANT_BOX_FILE_NAME)
+            return os.path.join(temp_dir, REPACKAGED_VAGRANT_BOX_FILE_NAME)
 
         else:
             raise BoxInventoryException("Vagrant box is not installed: name='{}' provider='{}'".format(name, provider))
+
+    @staticmethod
+    def extract(box_file_name, temp_dir, provider):
+        try:
+            command = "tar -xzvf '{}' -C '{}'".format(box_file_name, temp_dir)
+            run_command(command, quiet = True)
+
+        except ProcessException as e:
+            raise BoxInventoryException('Failed to extract Vagrant box files: {}'.format(e))
+
+        provider_file_lookup = {
+            'virtualbox': EXTRACTED_OVF_FILE_NAME,
+        }
+
+        if provider not in provider_file_lookup:
+            raise BoxInventoryException('Failed to extract Vagrant box as unknown provider: {}'.format(provider))
+
+        return os.path.join(temp_dir, provider_file_lookup[provider])

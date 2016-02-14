@@ -14,9 +14,6 @@ from .vagrant import BoxMetadata
 from .virtualbox import TargetVirtualBox
 
 
-EXTRACTED_OVF_FILE_NAME = 'box.ovf'
-
-
 log = logging.getLogger('wamopacker.command')
 
 
@@ -106,7 +103,7 @@ class Builder(object):
             if not self._dry_run:
                 self._run_packer(packer_config_file_name)
 
-            log.info('Build complete')
+                log.info('Build complete')
 
     @staticmethod
     def _dump_packer_config(packer_config):
@@ -137,71 +134,11 @@ class Builder(object):
 
         try:
             log.info('Building Packer configuration')
-            run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name), quiet = True)
+            run_command('{} build {}'.format(self._config.packer_command, packer_config_file_name))
 
-        except ProcessException as e:
-            raise BuilderException('Failed to build Packer configuration:-\n{}'.format(e.log_stdout))
-
-        except OSError as e:
+        except (ProcessException, OSError) as e:
             raise BuilderException('Failed to build Packer configuration: {}'.format(e))
 
-    # def _build_virtualbox(self, packer_config, temp_dir):
-    #     if self._config.virtualbox_iso_url and self._config.virtualbox_iso_checksum:
-    #         log.info('Bulding VirtualBox ISO configuration')
-    #
-    #         self._build_virtualbox_iso(packer_config, temp_dir)
-    #
-    #     else:
-    #         log.info('Bulding VirtualBox OVF configuration')
-    #
-    #         if self._config.virtualbox_vagrant_box_url and self._config.virtualbox_vagrant_box_name:
-    #             self._build_virtualbox_vagrant_box_url()
-    #
-    #         if self._config.virtualbox_vagrant_box_name:
-    #             self._build_virtualbox_vagrant_box(temp_dir)
-    #
-    #         if self._config.virtualbox_vagrant_box_file:
-    #             self._build_virtualbox_vagrant_box_file(temp_dir)
-    #
-    #         if self._config.virtualbox_ovf_input_file:
-    #             self._build_virtualbox_ovf_file(packer_config, temp_dir)
-    #
-    # def _build_virtualbox_ovf_file(self, packer_config, temp_dir):
-    #     packer_virtualbox_ovf = self._data_dir.read_json('packer_virtualbox_ovf')
-    #
-    #     config_key_list = (
-    #         ('virtualbox_ovf_output', 'vm_name'),
-    #         ('virtualbox_user', 'ssh_username'),
-    #         ('virtualbox_password', 'ssh_password'),
-    #         ('virtualbox_private_key_file', 'ssh_key_path'),  # https://github.com/mitchellh/packer/issues/2428
-    #         ('virtualbox_ovf_input_file', 'source_path'),
-    #         ('virtualbox_output_directory', 'output_directory'),
-    #     )
-    #     self._parse_parameters(config_key_list, packer_virtualbox_ovf)
-    #
-    #     packer_config['builders'].append(packer_virtualbox_ovf)
-    #
-    # def _build_virtualbox_vagrant_box_file(self, temp_dir):
-    #     log.info('Extracting VirtualBox OVF file from Vagrant box')
-    #
-    #     extract_command = "tar -xzvf '{}' -C '{}'".format(self._config.virtualbox_vagrant_box_file, temp_dir.path)
-    #     run_command(extract_command)
-    #
-    #     self._config.virtualbox_ovf_input_file = os.path.join(temp_dir.path, EXTRACTED_OVF_FILE_NAME)
-    #
-    # def _build_virtualbox_vagrant_box(self, temp_dir):
-    #     log.info('Extracting installed VirtualBox Vagrant box')
-    #
-    #     box_version = self._get_installed_vagrant_box_version(self._config.virtualbox_vagrant_box_name, 'virtualbox')
-    #
-    #     extract_command = "vagrant box repackage '{}' virtualbox '{}'".format(
-    #         self._config.virtualbox_vagrant_box_name,
-    #         box_version
-    #     )
-    #     run_command(extract_command, working_dir = temp_dir.path)
-    #
-    #     self._config.virtualbox_vagrant_box_file = os.path.join(temp_dir.path, REPACKAGED_VAGRANT_BOX_FILE_NAME)
-    #
     # def _build_aws(self, packer_config, temp_dir):
     #     log.info('Building AWS configuration')
     #
