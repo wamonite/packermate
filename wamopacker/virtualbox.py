@@ -35,7 +35,7 @@ class TargetVirtualBox(TargetBase):
         else:
             log.info('Building OVF configuration')
 
-            self._build_from_vagrant_box_url()
+            self._build_from_vagrant_box_url('virtualbox')
 
             self._build_from_vagrant_box()
 
@@ -97,36 +97,8 @@ class TargetVirtualBox(TargetBase):
         with open(preseed_file_name, 'w') as file_object:
             file_object.write(preseed_text)
 
-    def _build_from_vagrant_box_url(self):
-        if 'vagrant_box_name' not in self._config:
-            return
-
-        box_url = self._config.vagrant_box_url or self._config.vagrant_box_name
-        box_version = self._config.vagrant_box_version
-
-        log.info('Checking for local Vagrant box: {} {}'.format(self._config.vagrant_box_name, box_version or ''))
-        if not self._box_inventory.installed(self._config.vagrant_box_name, 'virtualbox', box_version):
-            log.info('Installing Vagrant box: {} {}'.format(box_url, box_version))
-            self._box_inventory.install(box_url, 'virtualbox', box_version)
-
     def _build_from_vagrant_box(self):
-        if 'vagrant_box_name' not in self._config:
-            return
-
-        box_version = self._config.vagrant_box_version
-        if not box_version:
-            box_version = self._box_inventory.installed(self._config.vagrant_box_name, 'virtualbox')
-
-        log.info('Exporting installed Vagrant box: {} {}'.format(self._config.vagrant_box_name, box_version or ''))
-
-        box_file_name = self._box_inventory.export(
-            self._temp_dir,
-            self._config.vagrant_box_name,
-            'virtualbox',
-            box_version
-        )
-
-        self._config.virtualbox_vagrant_box_file = box_file_name
+        self._config.virtualbox_vagrant_box_file = self._export_vagrant_box('virtualbox')
 
     def _build_from_vagrant_box_file(self):
         if 'virtualbox_vagrant_box_file' not in self._config:
@@ -134,11 +106,12 @@ class TargetVirtualBox(TargetBase):
 
         log.info('Extracting VirtualBox OVF file from Vagrant box')
 
-        self._config.virtualbox_ovf_input_file = self._box_inventory.extract(
+        file_name_lookup = self._box_inventory.extract(
             self._config.virtualbox_vagrant_box_file,
             self._temp_dir,
-            'virtualbox',
         )
+
+        self._config.virtualbox_ovf_input_file = file_name_lookup.get('box.ovf')
 
     def _build_from_ovf_file(self):
         if 'virtualbox_ovf_input_file' not in self._config:
@@ -151,8 +124,8 @@ class TargetVirtualBox(TargetBase):
         param_list = (
             TargetParameter('virtualbox_ovf_output', 'vm_name'),
             TargetParameter('ssh_user', 'ssh_username'),
-            TargetParameter('ssh_password', 'ssh_password'),
-            TargetParameter('ssh_key_file', 'ssh_key_path'),  # https://github.com/mitchellh/packer/issues/2428
+            TargetParameter('ssh_password', 'ssh_password', required = False),
+            TargetParameter('ssh_key_file', 'ssh_key_path', required = False),  # https://github.com/mitchellh/packer/issues/2428
             TargetParameter('virtualbox_ovf_input_file', 'source_path'),
             TargetParameter('virtualbox_output_directory', 'output_directory'),
         )

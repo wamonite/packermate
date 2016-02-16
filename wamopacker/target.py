@@ -3,6 +3,13 @@
 
 from __future__ import print_function, unicode_literals
 from .vagrant import BoxInventory
+import logging
+
+
+log = logging.getLogger('wamopacker.target')
+
+
+__all__ = ['TargetBase', 'TargetException', 'TargetParameter', 'TargetParameterException', 'parse_parameters']
 
 
 class TargetException(Exception):
@@ -20,6 +27,35 @@ class TargetBase(object):
 
     def build(self):
         raise NotImplementedError()
+
+    def _build_from_vagrant_box_url(self, provider):
+        if 'vagrant_box_name' not in self._config:
+            return
+
+        box_url = self._config.vagrant_box_url or self._config.vagrant_box_name
+        box_version = self._config.vagrant_box_version
+
+        log.info('Checking for local Vagrant box: {} {}'.format(self._config.vagrant_box_name, box_version or ''))
+        if not self._box_inventory.installed(self._config.vagrant_box_name, provider, box_version):
+            log.info('Installing Vagrant box: {} {}'.format(box_url, box_version or ''))
+            self._box_inventory.install(box_url, provider, box_version)
+
+    def _export_vagrant_box(self, provider):
+        if 'vagrant_box_name' not in self._config:
+            return
+
+        box_version = self._config.vagrant_box_version
+        if not box_version:
+            box_version = self._box_inventory.installed(self._config.vagrant_box_name, provider)
+
+        log.info('Exporting installed Vagrant box: {} {}'.format(self._config.vagrant_box_name, box_version or ''))
+
+        return self._box_inventory.export(
+            self._temp_dir,
+            self._config.vagrant_box_name,
+            provider,
+            box_version
+        )
 
 
 class TargetParameterException(Exception):
