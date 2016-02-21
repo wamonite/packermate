@@ -72,6 +72,7 @@ class TargetParameter(object):
             value_type = basestring,
             default = None,
             only_if = None,
+            func = None,
     ):
         self.config_key = config_key
         self.output_key = output_key
@@ -79,21 +80,25 @@ class TargetParameter(object):
         self.value_type = value_type
         self.default = default
         self.only_if = only_if
+        self.func = func
 
 
-def parse_parameters(param_list, config, output):
+def parse_parameters(param_list, config, output, config_lookup = None):
     for param in param_list:
         assert isinstance(param, TargetParameter)
 
-        if param.config_key not in config:
+        if config_lookup and param.config_key in config_lookup:
+            val = config.expand_parameters(config_lookup[param.config_key])
+
+        elif param.config_key in config:
+            val = getattr(config, param.config_key)
+
+        else:
             if param.default is not None:
                 val = param.default
 
             else:
                 continue
-
-        else:
-            val = getattr(config, param.config_key)
 
         if not isinstance(val, param.value_type):
             raise TargetParameterException('Parameter type mismatch: name={} expected={} received={}'.format(
@@ -101,6 +106,9 @@ def parse_parameters(param_list, config, output):
                 param.value_type,
                 type(val))
             )
+
+        if param.func and callable(param.func):
+            val = param.func(val)
 
         output[param.output_key] = val
 

@@ -8,6 +8,7 @@ from .file_utils import TempDir, DataDir, write_json_file
 from .vagrant import BoxMetadata
 from .virtualbox import TargetVirtualBox
 from .aws import TargetAWS
+from .provisioner import parse_provisioners
 import logging
 
 
@@ -34,8 +35,11 @@ class PackerConfig(object):
 
         return file_name_full
 
-    def add_builder(self, builder_config):
-        self._config['builders'].append(builder_config)
+    def add_builder(self, config):
+        self._config['builders'].append(config)
+
+    def add_provisioner(self, config):
+        self._config['provisioners'].append(config)
 
 
 class BuilderException(Exception):
@@ -85,8 +89,9 @@ class Builder(object):
                 target = target_class(self._config, self._data_dir, packer_config, temp_dir)
                 target.build()
 
-            # self._add_provisioners(packer_config)
-            #
+            if self._config.provisioners:
+                parse_provisioners(self._config.provisioners, self._config, packer_config)
+
             # self._add_vagrant_export(packer_config)
             #
             # self._run_packer(packer_config, temp_dir)
@@ -137,106 +142,6 @@ class Builder(object):
         except (ProcessException, OSError) as e:
             raise BuilderException('Failed to build Packer configuration: {}'.format(e))
 
-    # def _add_provisioners(self, packer_config):
-    #     if self._config.provisioners:
-    #         if not isinstance(self._config.provisioners, list):
-    #             raise BuilderException('Provisioners must be a list')
-    #
-    #         value_definition_lookup = {
-    #             'file': (
-    #                 {'name': 'source'},
-    #                 {'name': 'destination'},
-    #                 {'name': 'direction', 'required': False},
-    #             ),
-    #             'shell': (
-    #                 {'name': 'inline', 'type': list, 'required': False},
-    #                 {'name': 'script', 'required': False},
-    #                 {'name': 'scripts', 'type': list, 'required': False},
-    #                 {'name': 'execute_command', 'required': False, 'default': '(( shell_command ))'},
-    #                 {'name': 'environment_vars', 'type': list, 'required': False},
-    #             ),
-    #             'shell-local': (
-    #                 {'name': 'command', 'required': True},
-    #                 {'name': 'execute_command', 'type': list, 'required': False, 'default': ["/bin/sh", "-c", "{{.Command}}"]},
-    #             ),
-    #             'ansible-local': (
-    #                 {'name': 'playbook_file'},
-    #                 {'name': 'playbook_dir', 'required': False},
-    #                 {'name': 'command', 'required': False},
-    #                 {'name': 'extra_arguments', 'type': list, 'required': False},
-    #                 {'name': 'extra_vars', 'type': dict, 'required': False, 'func': self._to_expanded_json},
-    #             ),
-    #         }
-    #         value_parse_lookup = {
-    #             'ansible-local': self._parse_provisioner_ansible_local,
-    #         }
-    #
-    #         provisioner_list = self._config.provisioners
-    #         for provisioner_lookup in provisioner_list:
-    #             provisioner_type = provisioner_lookup.get('type')
-    #             if provisioner_type in value_definition_lookup:
-    #                 provisioner_values = self._parse_provisioner(
-    #                     provisioner_type,
-    #                     provisioner_lookup,
-    #                     value_definition_lookup[provisioner_type]
-    #                 )
-    #
-    #                 value_parse_func = value_parse_lookup.get(provisioner_type)
-    #                 if callable(value_parse_func):
-    #                     value_parse_func(provisioner_values)
-    #
-    #                 packer_config['provisioners'].append(provisioner_values)
-    #
-    #             else:
-    #                 raise BuilderException("Unknown provision type: type='{}'".format(provisioner_type))
-    #
-    # def _parse_provisioner(self, provisioner_type, provisioner_lookup, value_definition):
-    #     provisioner_values = {
-    #         'type': provisioner_type
-    #     }
-    #
-    #     provisioner_val_name_set = set(provisioner_lookup.keys())
-    #     provisioner_val_name_set.remove('type')
-    #     for val_items in value_definition:
-    #         val_name = val_items['name']
-    #         val_type = val_items.get('type', basestring)
-    #         val_required = val_items.get('required', True)
-    #         val_default = self._config.expand_parameters(val_items.get('default'))
-    #         val_func = val_items.get('func')
-    #
-    #         val = provisioner_lookup.get(val_name, val_default)
-    #         if not isinstance(val, val_type):
-    #             if val or val_required:
-    #                 raise BuilderException("Invalid provision value: name='{}' type='{}' type_expected='{}'".format(
-    #                     val_name,
-    #                     '' if val is None else val.__class__.__name__,
-    #                     val_type.__name__
-    #                 ))
-    #
-    #         if callable(val_func):
-    #             val = val_func(val)
-    #
-    #         if val:
-    #             provisioner_values[val_name] = val
-    #             provisioner_val_name_set.discard(val_name)
-    #
-    #     if provisioner_val_name_set:
-    #         raise BuilderException("Invalid provision value: name='{}'".format(','.join(provisioner_val_name_set)))
-    #
-    #     return provisioner_values
-    #
-    # def _to_expanded_json(self, val):
-    #     val_expanded = self._config.expand_parameters(val)
-    #     return json.dumps(val_expanded, indent = None)
-    #
-    # def _parse_provisioner_ansible_local(self, provisioner_values):
-    #     extra_vars = provisioner_values.get('extra_vars')
-    #     if extra_vars:
-    #         extra_arguments_list = provisioner_values.setdefault('extra_arguments', [])
-    #         extra_arguments_list.append("-e '{}'".format(extra_vars))
-    #
-    #         del(provisioner_values['extra_vars'])
-    #
     # def _add_vagrant_export(self, packer_config):
     #     if self._config.vagrant:
     #         vagrant_config = {
