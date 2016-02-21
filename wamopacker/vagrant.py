@@ -361,3 +361,18 @@ class BoxInventory(object):
         file_list = os.listdir(temp_dir)
 
         return dict([(file_name, os.path.join(temp_dir, file_name)) for file_name in file_list])
+
+
+def parse_vagrant_export(config, packer_config):
+    if config.vagrant:
+        vagrant_config = {
+            'type': 'vagrant'
+        }
+
+        if config.vagrant_output:
+            vagrant_config['output'] = config.vagrant_output
+
+        if config.vagrant_keep_inputs:
+            vagrant_config['keep_input_artifact'] = True
+
+        packer_config.add_post_processor(vagrant_config)

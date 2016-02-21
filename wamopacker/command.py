@@ -5,7 +5,7 @@ from __future__ import print_function, unicode_literals
 import os
 from .process import run_command, ProcessException
 from .file_utils import TempDir, DataDir, write_json_file
-from .vagrant import BoxMetadata
+from .vagrant import BoxMetadata, parse_vagrant_export
 from .virtualbox import TargetVirtualBox
 from .aws import TargetAWS
 from .provisioner import parse_provisioners
@@ -35,11 +35,17 @@ class PackerConfig(object):
 
         return file_name_full
 
+    def _add_section(self, name, config):
+        self._config[name].append(config)
+
     def add_builder(self, config):
-        self._config['builders'].append(config)
+        self._add_section('builders', config)
 
     def add_provisioner(self, config):
-        self._config['provisioners'].append(config)
+        self._add_section('provisioners', config)
+
+    def add_post_processor(self, config):
+        self._add_section('post-processors', config)
 
 
 class BuilderException(Exception):
@@ -92,10 +98,8 @@ class Builder(object):
             if self._config.provisioners:
                 parse_provisioners(self._config.provisioners, self._config, packer_config)
 
-            # self._add_vagrant_export(packer_config)
-            #
-            # self._run_packer(packer_config, temp_dir)
-            #
+            parse_vagrant_export(self._config, packer_config)
+
             # self._update_vagrant_version()
 
             if self._dump_packer:
@@ -142,20 +146,6 @@ class Builder(object):
         except (ProcessException, OSError) as e:
             raise BuilderException('Failed to build Packer configuration: {}'.format(e))
 
-    # def _add_vagrant_export(self, packer_config):
-    #     if self._config.vagrant:
-    #         vagrant_config = {
-    #             'type': 'vagrant'
-    #         }
-    #
-    #         if self._config.vagrant_output:
-    #             vagrant_config['output'] = self._config.vagrant_output
-    #
-    #         if self._config.vagrant_keep_inputs:
-    #             vagrant_config['keep_input_artifact'] = True
-    #
-    #         packer_config['post-processors'].append(vagrant_config)
-    #
     # def _update_vagrant_version(self, validate_only = False):
     #     if self._dry_run:
     #         return
