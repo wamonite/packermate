@@ -95,7 +95,7 @@ def parse_parameters(param_list, config, output, config_lookup = None):
 
         else:
             if param.default is not None:
-                val = param.default
+                val = config.expand_parameters(param.default)
 
             else:
                 continue

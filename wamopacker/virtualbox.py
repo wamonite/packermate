@@ -55,7 +55,7 @@ class TargetVirtualBox(TargetBase):
             TargetParameter('virtualbox_disk_mb', 'disk_size', required = False),
             TargetParameter('ssh_user', 'ssh_username'),
             TargetParameter('ssh_password', 'ssh_password'),
-            TargetParameter('virtualbox_shutdown_command', 'shutdown_command', default = "echo '(( virtualbox_password ))' | sudo -S shutdown -P now"),
+            TargetParameter('virtualbox_shutdown_command', 'shutdown_command', default = "echo '(( ssh_password ))' | sudo -S shutdown -P now"),
             TargetParameter('virtualbox_output_directory', 'output_directory'),
             TargetParameter('virtualbox_packer_http_dir', 'http_directory', default = 'packer_http'),
         )
