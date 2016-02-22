@@ -376,3 +376,18 @@ def parse_vagrant_export(config, packer_config):
             vagrant_config['keep_input_artifact'] = True
 
         packer_config.add_post_processor(vagrant_config)
+
+
+def publish_vagrant_box(config):
+    if config.vagrant_version_prefix is None:
+        return
+
+    if config.vm_version is None:
+        log.info('Unable to publish Vagrant version file as vm_version parameter not set.')
+        return
+
+    if config.vagrant_output is not None:
+        match = re.search('^(.+)\{\{\s*\.Provider\s*\}\}(.+)$', config.vagrant_output)
+        if match:
+            file_format_name = match.group(1) + '{}' + match.group(2)
+            print(file_format_name)

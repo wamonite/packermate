@@ -5,7 +5,7 @@ from __future__ import print_function, unicode_literals
 import os
 from .process import run_command, ProcessException
 from .file_utils import TempDir, DataDir, write_json_file
-from .vagrant import BoxMetadata, parse_vagrant_export
+from .vagrant import BoxMetadata, parse_vagrant_export, publish_vagrant_box
 from .virtualbox import TargetVirtualBox
 from .aws import TargetAWS
 from .provisioner import parse_provisioners
@@ -100,8 +100,6 @@ class Builder(object):
 
             parse_vagrant_export(self._config, packer_config)
 
-            # self._update_vagrant_version()
-
             if self._dump_packer:
                 self._dump_packer_config(packer_config)
 
@@ -111,6 +109,8 @@ class Builder(object):
                 self._run_packer(packer_config_file_name)
 
                 log.info('Build complete')
+
+                publish_vagrant_box(self._config)
 
     @staticmethod
     def _dump_packer_config(packer_config):
