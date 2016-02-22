@@ -110,7 +110,10 @@ class Builder(object):
 
                 log.info('Build complete')
 
-                publish_vagrant_box(self._config)
+                publish_vagrant_box(
+                    self._config,
+                    self._target_list,
+                )
 
     @staticmethod
     def _dump_packer_config(packer_config):
@@ -145,130 +148,3 @@ class Builder(object):
 
         except (ProcessException, OSError) as e:
             raise BuilderException('Failed to build Packer configuration: {}'.format(e))
-
-    # def _update_vagrant_version(self, validate_only = False):
-    #     if self._dry_run:
-    #         return
-    #
-    #     if self._config.vagrant_version_prefix is None:
-    #         return
-    #
-    #     if self._config.vm_version is None:
-    #         log.info('Unable to modify Vagrant version file as vm_version parameter not set.')
-    #         return
-    #
-    #     if self._config.vagrant_output is not None:
-    #         match = re.search('^(.+)\{\{\s*\.Provider\s*\}\}(.+)$', self._config.vagrant_output)
-    #         if match:
-    #             file_format_name = match.group(1) + '{}' + match.group(2)
-    #
-    #             self._update_vagrant_version_file(self._config.vagrant_version_prefix, file_format_name, validate_only)
-    #
-    # def _update_vagrant_version_file(self, file_prefix, file_format_name, validate_only):
-    #     version_file_name = file_prefix + '.json'
-    #
-    #     log.info('{} Vagrant version file: {}'.format(
-    #         'Validating' if validate_only else 'Updating',
-    #         version_file_name
-    #     ))
-    #
-    #     # get or create the version file
-    #     if os.path.exists(version_file_name):
-    #         try:
-    #             with open(version_file_name, 'rb') as file_object:
-    #                 file_content = json.load(file_object)
-    #
-    #         except ValueError:
-    #             raise BuilderException('Unable to update Vagrant version file: {}'.format(version_file_name))
-    #
-    #     else:
-    #         file_content = {
-    #             'name': self._config.vm_name,
-    #             'versions': []
-    #         }
-    #
-    #     # get or create the version info
-    #     try:
-    #         vm_version_val = Version(self._config.vm_version)
-    #
-    #     except ValueError:
-    #         raise BuilderException('Failed to parse semantic version from vm_version: {}'.format(self._config.vm_version))
-    #
-    #     # build a lookup of active versions
-    #     version_info_lookup = {}
-    #     for version_info in file_content['versions']:
-    #         if version_info['status'] == 'active':
-    #             try:
-    #                 version_val = Version(version_info['version'])
-    #                 version_info_lookup[version_val] = version_info
-    #
-    #             except ValueError:
-    #                 raise BuilderException('Failed to parse semantic version: {}'.format(version_info['version']))
-    #
-    #     # if current version is a development build, check that a higher non-development version exists
-    #     if version_info_lookup and vm_version_val.patch == 0:
-    #         version_latest = sorted(version_info_lookup.keys(), reverse = True)[0]
-    #         if vm_version_val > version_latest:
-    #             raise BuilderException('Cannot build a development image if there is no higher version present. {} > {}'.format(vm_version_val, version_latest))
-    #
-    #     # stop here when validating
-    #     if validate_only:
-    #         return
-    #
-    #     version_info_current = version_info_lookup.setdefault(vm_version_val, {})
-    #
-    #     # populate the version info
-    #     time_now = datetime.utcnow()
-    #     time_str = time_now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
-    #
-    #     version_info_current['version'] = self._config.vm_version
-    #     version_info_current['status'] = 'active'
-    #     version_info_current['updated_at'] = time_str
-    #     if 'created_at' not in version_info_current:
-    #         version_info_current['created_at'] = time_str
-    #     version_info_current['providers'] = []
-    #
-    #     for target in self._target_list:
-    #         box_file_name = file_format_name.format(target)
-    #
-    #         if self._config.vagrant_copy_url_prefix:
-    #             box_file_url = self._config.vagrant_copy_url_prefix + os.path.basename(box_file_name)
-    #
-    #         else:
-    #             box_file_url = 'file://{}'.format(os.path.abspath(box_file_name))
-    #
-    #         self._copy_vagrant_files(box_file_name)
-    #
-    #         provider_info = {
-    #             'name': target,
-    #             'url': box_file_url,
-    #             'checksum_type': 'md5',
-    #             'checksum': get_md5_sum(box_file_name)
-    #         }
-    #
-    #         version_info_current['providers'].append(provider_info)
-    #
-    #     file_content['versions'] = []
-    #     for version_info_key in sorted(version_info_lookup.keys()):
-    #         file_content['versions'].append(version_info_lookup[version_info_key])
-    #
-    #     write_json_file(file_content, version_file_name)
-    #
-    #     self._copy_vagrant_files(version_file_name)
-    #
-    # def _copy_vagrant_files(self, file_name):
-    #     if 'vagrant_copy_command' not in self._config:
-    #         return
-    #
-    #     tmp_path = self._config.FILE_PATH
-    #     tmp_name = self._config.FILE_NAME
-    #
-    #     self._config.FILE_PATH = file_name
-    #     self._config.FILE_NAME = os.path.basename(file_name)
-    #     copy_cmd = self._config.vagrant_copy_command
-    #
-    #     log.info('Executing copy command: {}'.format(copy_cmd))
-    #     run_command(copy_cmd)
-    #
-    #     self._config.FILE_PATH = tmp_path
-    #     self._config.FILE_NAME = tmp_name

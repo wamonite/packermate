@@ -7,7 +7,7 @@ import requests
 from requests.exceptions import ConnectionError
 import json
 from semantic_version import Version
-from .file_utils import write_json_file
+from .file_utils import write_json_file, get_md5_sum
 from datetime import datetime
 from .process import run_command, ProcessException
 import re
@@ -21,7 +21,16 @@ REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 log = logging.getLogger('wamopacker.vagrant')
 
 
-__all__ = ['BoxMetadata', 'BoxMetadataException', 'parse_version', 'BoxInventory', 'BoxInventoryException']
+__all__ = [
+    'BoxMetadata',
+    'BoxMetadataException',
+    'parse_version',
+    'BoxInventory',
+    'BoxInventoryException',
+    'parse_vagrant_export',
+    'PublishException',
+    'publish_vagrant_box',
+]
 
 
 class BoxVersionException(Exception):
@@ -378,16 +387,117 @@ def parse_vagrant_export(config, packer_config):
         packer_config.add_post_processor(vagrant_config)
 
 
-def publish_vagrant_box(config):
-    if config.vagrant_version_prefix is None:
+class PublishException(Exception):
+    pass
+
+
+def publish_vagrant_box(config, target_list):
+    if not config.vagrant_output:
         return
 
     if config.vm_version is None:
         log.info('Unable to publish Vagrant version file as vm_version parameter not set.')
         return
 
+    box_metadata_file_name, target_file_lookup = get_vagrant_output_file_names(config, target_list)
+
+    box_metadata = get_or_create_vagrant_box_metadata(config, box_metadata_file_name)
+
+    add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup)
+
+    log.info('Writing updated Vagrant box metadata: {}'.format(box_metadata_file_name))
+    box_metadata.write(box_metadata_file_name)
+
+    if 'vagrant_publish_copy_command' in config:
+        copy_published_file(config, box_metadata_file_name)
+
+    log.info('Publish complete')
+
+
+def get_vagrant_output_file_names(config, target_list):
+    target_file_lookup = {}
+    box_metadata_file_name = None
+
     if config.vagrant_output is not None:
         match = re.search('^(.+)\{\{\s*\.Provider\s*\}\}(.+)$', config.vagrant_output)
         if match:
             file_format_name = match.group(1) + '{}' + match.group(2)
-            print(file_format_name)
+
+            vagrant_output_path = os.path.dirname(file_format_name)
+            box_metadata_file_name = os.path.join(vagrant_output_path, '{}.json'.format(config.vm_name))
+
+            for target_name in target_list:
+                provider_file_name = file_format_name.format(target_name)
+
+                if not os.path.exists(provider_file_name):
+                    raise PublishException('Unable to find Vagrant box file: {}'.format(provider_file_name))
+
+                target_file_lookup[target_name] = provider_file_name
+
+    if not box_metadata_file_name:
+        raise PublishException('Unable to determine Vagrant box metadata output file name')
+
+    if not target_file_lookup:
+        raise PublishException('No Vagrant box files found')
+
+    return box_metadata_file_name, target_file_lookup
+
+
+def get_or_create_vagrant_box_metadata(config, box_metadata_file_name):
+    box_metadata = None
+    if box_metadata is None and config.vagrant_publish_url_prefix:
+        box_url = '{}{}.json'.format(config.vagrant_publish_url_prefix, config.vm_name)
+
+        try:
+            log.info('Attemping to retrieve Vagrant box metadata: {}'.format(box_url))
+            box_metadata = BoxMetadata(url = box_url)
+
+        except BoxMetadataException:
+            log.warning('Failed to download Vagrant box metadata: {}'.format(box_url))
+
+    if box_metadata is None and os.path.exists(box_metadata_file_name):
+        box_url = 'file://{}'.format(os.path.abspath(box_metadata_file_name))
+        log.info('Loading Vagrant box metadata: {}'.format(box_url))
+
+        box_metadata = BoxMetadata(url = box_url)
+
+    if box_metadata is None:
+        log.info('Creating new Vagrant box metadata: {}'.format(box_metadata_file_name))
+        box_metadata = BoxMetadata(name = config.vm_name)
+
+    return box_metadata
+
+
+def add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup):
+    for provider_name, provider_file_name in target_file_lookup.iteritems():
+        if 'vagrant_publish_copy_command' in config:
+            copy_published_file(config, provider_file_name)
+
+        if config.vagrant_publish_url_prefix:
+            box_url = '{}{}'.format(
+                config.vagrant_publish_url_prefix,
+                os.path.basename(provider_file_name),
+            )
+
+        else:
+            box_url = 'file://{}'.format(os.path.abspath(provider_file_name))
+
+        box_checksum = get_md5_sum(provider_file_name)
+        box_checksum_type = 'md5'
+
+        box_metadata.add_version(config.vm_version, provider_name, box_url, box_checksum, box_checksum_type)
+
+
+def copy_published_file(config, file_name):
+    tmp_path = config.FILE_PATH
+    tmp_name = config.FILE_NAME
+
+    config.FILE_PATH = file_name
+    config.FILE_NAME = os.path.basename(file_name)
+    copy_cmd = config.vagrant_publish_copy_command
+
+    log.info('Executing Vagrant publish copy command: {}'.format(copy_cmd))
+    run_command(copy_cmd)
+
+    config.FILE_PATH = tmp_path
+    config.FILE_NAME = tmp_name
