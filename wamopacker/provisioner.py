@@ -6,6 +6,9 @@ from .target import TargetParameter, parse_parameters
 import json
 
 
+__all__ = ['parse_provisioners', 'ProvisionerException']
+
+
 class ProvisionerException(Exception):
     pass
 
@@ -20,27 +23,27 @@ def parse_provisioners(provisioner_list, config, packer_config):
 
     value_definition_lookup = {
         'file': (
-            TargetParameter('source', 'source'),
-            TargetParameter('destination', 'destination'),
-            TargetParameter('direction', 'direction', required = False),
+            TargetParameter('source'),
+            TargetParameter('destination'),
+            TargetParameter('direction', required = False),
         ),
         'shell': (
-            TargetParameter('inline', 'inline', value_type = list, required = False),
-            TargetParameter('script', 'script', required = False),
-            TargetParameter('scripts', 'scripts', value_type = list, required = False),
-            TargetParameter('execute_command', 'execute_command', required = False, default = '(( shell_command ))'),
-            TargetParameter('environment_vars', 'environment_vars', value_type = list, required = False),
+            TargetParameter('inline', value_type = list, required = False),
+            TargetParameter('script', required = False),
+            TargetParameter('scripts', value_type = list, required = False),
+            TargetParameter('execute_command', required = False, default = '(( shell_command ))'),
+            TargetParameter('environment_vars', value_type = list, required = False),
         ),
         'shell-local': (
-            TargetParameter('command', 'command'),
-            TargetParameter('execute_command', 'execute_command', value_type = list, required = False, default = ["/bin/sh", "-c", "{{.Command}}"]),
+            TargetParameter('command'),
+            TargetParameter('execute_command', value_type = list, required = False, default = ["/bin/sh", "-c", "{{.Command}}"]),
         ),
         'ansible-local': (
-            TargetParameter('playbook_file', 'playbook_file'),
-            TargetParameter('playbook_dir', 'playbook_dir', required = False),
-            TargetParameter('command', 'command', value_type = list),
-            TargetParameter('extra_arguments', 'extra_arguments', value_type = list, required = False),
-            TargetParameter('extra_vars', 'extra_vars', value_type = dict, required = False, func = to_expanded_json),
+            TargetParameter('playbook_file'),
+            TargetParameter('playbook_dir', required = False),
+            TargetParameter('command', required = False),
+            TargetParameter('extra_arguments', value_type = list, required = False),
+            TargetParameter('extra_vars', value_type = dict, required = False, func = to_expanded_json),
         ),
     }
     value_parse_lookup = {

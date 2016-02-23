@@ -47,6 +47,9 @@ class PackerConfig(object):
     def add_post_processor(self, config):
         self._add_section('post-processors', config)
 
+    def __eq__(self, other):
+        return isinstance(other, PackerConfig) and self._config == other._config
+
 
 class BuilderException(Exception):
     pass
