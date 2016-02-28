@@ -34,7 +34,7 @@ class TargetVirtualBox(TargetBase):
             self._build_iso()
 
         else:
-            log.info('Building OVF configuration')
+            log.info('Building OVF/OVA configuration')
 
             self._box_inventory.install_from_config(self._config, 'virtualbox')
 
@@ -42,13 +42,13 @@ class TargetVirtualBox(TargetBase):
 
             self._build_from_vagrant_box_file()
 
-            self._build_from_ovf_file()
+            self._build_from_input_file()
 
     def _build_iso(self):
         iso_build_config = self._data_dir.read_json('packer_virtualbox_iso')
 
         param_list = (
-            TargetParameter('virtualbox_ovf_output', 'vm_name'),
+            TargetParameter('virtualbox_output_name', 'vm_name', func = _to_machine_name),
             TargetParameter('virtualbox_iso_url', 'iso_url'),
             TargetParameter('virtualbox_iso_checksum', 'iso_checksum'),
             TargetParameter('virtualbox_iso_checksum_type', 'iso_checksum_type', default = 'md5'),
@@ -58,6 +58,7 @@ class TargetVirtualBox(TargetBase):
             TargetParameter('ssh_password', 'ssh_password'),
             TargetParameter('virtualbox_shutdown_command', 'shutdown_command', default = "echo '(( ssh_password ))' | sudo -S shutdown -P now"),
             TargetParameter('virtualbox_output_directory', 'output_directory'),
+            TargetParameter('virtualbox_output_format', 'format', required = False),
             TargetParameter('virtualbox_packer_http_dir', 'http_directory', default = 'packer_http'),
         )
         parse_parameters(param_list, self._config, iso_build_config)
@@ -105,31 +106,35 @@ class TargetVirtualBox(TargetBase):
         if 'virtualbox_vagrant_box_file' not in self._config:
             return
 
-        log.info('Extracting VirtualBox OVF file from Vagrant box')
+        log.info('Extracting VirtualBox OVF/OVA file from Vagrant box')
 
         file_name_lookup = unarchive_file(
             self._config.virtualbox_vagrant_box_file,
             self._temp_dir,
         )
 
-        self._config.virtualbox_ovf_input_file = file_name_lookup.get('box.ovf')
+        self._config.virtualbox_input_file = file_name_lookup.get('box.ovf') or file_name_lookup.get('box.ova')
 
-    def _build_from_ovf_file(self):
-        if 'virtualbox_ovf_input_file' not in self._config:
+    def _build_from_input_file(self):
+        if 'virtualbox_input_file' not in self._config:
             return
 
-        log.info('Building from VirtualBox OVF file')
+        log.info('Building from VirtualBox OVF/OVA file')
 
         packer_virtualbox_ovf = self._data_dir.read_json('packer_virtualbox_ovf')
 
         param_list = (
-            TargetParameter('virtualbox_ovf_output', 'vm_name'),
+            TargetParameter('virtualbox_output_name', 'vm_name', func = _to_machine_name),
             TargetParameter('ssh_user', 'ssh_username'),
             TargetParameter('ssh_password', 'ssh_password', required = False),
             TargetParameter('ssh_key_file', 'ssh_key_path', required = False),  # https://github.com/mitchellh/packer/issues/2428
-            TargetParameter('virtualbox_ovf_input_file', 'source_path'),
+            TargetParameter('virtualbox_input_file', 'source_path'),
             TargetParameter('virtualbox_output_directory', 'output_directory'),
         )
         parse_parameters(param_list, self._config, packer_virtualbox_ovf)
 
         self._packer_config.add_builder(packer_virtualbox_ovf)
+
+
+def _to_machine_name(val):
+    return val.replace('_', '-')
