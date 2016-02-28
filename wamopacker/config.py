@@ -11,13 +11,6 @@ import logging
 
 
 CONFIG_DEFAULTS = {
-    'virtualbox_iso_checksum_type': 'md5',
-    'virtualbox_password': '',
-    'virtualbox_shutdown_command': "echo '(( virtualbox_password ))' | sudo -S shutdown -P now",
-    'virtualbox_guest_os_type': 'Ubuntu_64',
-    'virtualbox_packer_http_dir': 'packer_http',
-    'aws_ami_name': 'wamopacker {{ isotime \"2006-01-02 15-04\" }}',
-    'aws_ami_force_deregister': False,
     'shell_command': "{{ .Vars }} bash '{{ .Path }}'",
     'shell_command_sudo': "sudo -H -S {{ .Vars }} bash '{{ .Path }}'",
     'packer_command': 'packer'
@@ -451,3 +444,54 @@ class Config(object):
             self.__class__.__name__,
             str(self)
         )
+
+    def provider(self, provider):
+        return ConfigProvider(self, provider)
+
+
+class ConfigProvider(object):
+
+    def __init__(self, config, provider):
+        if not provider:
+            raise ConfigException('Config provider not set')
+
+        self._config = config
+        self._provider = provider
+        self._prefix = self._provider + '_'
+
+    def __getattr__(self, item):
+        val = None
+
+        if not item.startswith(self._prefix):
+            val = getattr(self._config, self._prefix + item)
+
+        if val is None:
+            val = getattr(self._config, item)
+
+        return val
+
+    def __setattr__(self, item, value):
+        if item in ('_config', '_provider', '_prefix'):
+            super(ConfigProvider, self).__setattr__(item, value)
+
+        else:
+            if item.startswith(self._prefix):
+                return setattr(self._config, item, value)
+
+            else:
+                return setattr(self._config, self._prefix + item, value)
+
+    def __contains__(self, item):
+        if item.startswith(self._prefix):
+            return item in self._config
+
+        else:
+            return self._prefix + item in self._config or item in self._config
+
+    def __delattr__(self, item):
+        if not item.startswith(self._prefix):
+            if self._prefix + item in self._config:
+                delattr(self._config, self._prefix + item)
+
+        if item in self._config:
+            delattr(self._config, item)

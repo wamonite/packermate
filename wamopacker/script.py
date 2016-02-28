@@ -4,9 +4,8 @@
 from __future__ import print_function, unicode_literals
 import sys
 import argparse
-from .config import Config, ConfigException
-from .command import Builder, BuilderException
-from .process import ProcessException
+from .config import Config
+from .command import Builder
 from collections import OrderedDict
 import logging
 
@@ -17,7 +16,7 @@ COMMAND_LOOKUP = OrderedDict([
     ('aws', ('build', 'aws')),
     ('all', ('build', 'virtualbox', 'aws')),
 ])
-LOG_FORMAT = '%(asctime)s %(name)s[%(process)s] %(levelname)s: %(message)s'
+LOG_FORMAT = '%(name)s %(levelname)s: %(message)s'
 LOG_FORMAT_DATE = '%Y-%m-%d %H:%M:%S'
 LOG_LEVEL = logging.INFO
 
@@ -78,7 +77,7 @@ def run():
             if callable(command_func):
                 command_func()
 
-    except (ConfigException, BuilderException, ProcessException, NotImplementedError) as e:
+    except Exception as e:
         logger.error('{}: {}'.format(e.__class__.__name__, e))
         sys.exit(1)
 

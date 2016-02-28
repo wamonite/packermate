@@ -7,17 +7,30 @@ import requests
 from requests.exceptions import ConnectionError
 import json
 from semantic_version import Version
-from .file_utils import write_json_file
+from .file_utils import write_json_file, get_md5_sum
 from datetime import datetime
 from .process import run_command, ProcessException
 import re
+import os
 import logging
 
 
-log = logging.getLogger('wamopacker.version')
+REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 
 
-__all__ = ['BoxMetadata', 'BoxMetadataException', 'parse_version']
+log = logging.getLogger('wamopacker.vagrant')
+
+
+__all__ = [
+    'BoxMetadata',
+    'BoxMetadataException',
+    'parse_version',
+    'BoxInventory',
+    'BoxInventoryException',
+    'parse_vagrant_export',
+    'PublishException',
+    'publish_vagrant_box',
+]
 
 
 class BoxVersionException(Exception):
@@ -28,7 +41,16 @@ def parse_version(version_val):
     if not version_val:
         raise BoxVersionException("Invalid version value: '{}'".format(version_val))
 
-    elif isinstance(version_val, basestring):
+    elif isinstance(version_val, Version):
+        if version_val.partial or version_val.prerelease or version_val.build:
+            raise BoxVersionException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
+
+        return version_val
+
+    else:
+        if not isinstance(version_val, basestring):
+            version_val = str(version_val)
+
         version_split = version_val.split('.')
         if len(version_split) > 3:
             raise BoxVersionException("Invalid number of version elements: '{}'".format(version_val))
@@ -48,13 +70,24 @@ def parse_version(version_val):
 
         return Version('.'.join(version_parts))
 
-    elif isinstance(version_val, Version):
-        if version_val.partial or version_val.prerelease or version_val.build:
-            raise BoxVersionException("Partial, pre-release and build versions unsupported: '{}'".format(version_val))
 
-        return version_val
+def get_version_index(version_val, version_list):
+    assert isinstance(version_val, Version)
 
-    raise BoxVersionException("Unsupported version type: '{}'".format(version_val))
+    insert_at = None
+    match_at = None
+    for index, list_val in enumerate(version_list):
+        assert isinstance(list_val, Version)
+
+        if version_val == list_val:
+            match_at = index
+            break
+
+        if version_val > list_val:
+            insert_at = index
+            break
+
+    return insert_at, match_at
 
 
 class BoxMetadataException(Exception):
@@ -167,25 +200,6 @@ class BoxMetadata(object):
         return parsed_list
 
     @staticmethod
-    def _get_version_index(version_val, version_list):
-        assert isinstance(version_val, Version)
-
-        insert_at = None
-        match_at = None
-        for index, list_val in enumerate(version_list):
-            assert isinstance(list_val, Version)
-
-            if version_val == list_val:
-                match_at = index
-                break
-
-            if version_val > list_val:
-                insert_at = index
-                break
-
-        return insert_at, match_at
-
-    @staticmethod
     def _get_provider(provider_name, provider_list):
         provider_new = None
         for provider_info in provider_list:
@@ -206,7 +220,7 @@ class BoxMetadata(object):
         version_val = parse_version(version)
 
         version_list = [val['version'] for val in self.versions]
-        insert_at, match_at = self._get_version_index(version_val, version_list)
+        insert_at, match_at = get_version_index(version_val, version_list)
 
         time_now = datetime.utcnow()
         time_str = time_now.strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -262,13 +276,13 @@ class BoxInventory(object):
     def _refresh(self):
         if self._box_lookup is None:
             try:
-                box_lines = run_command('vagrant box list')
+                box_lines = run_command('vagrant box list', quiet = True)
 
             except ProcessException as e:
                 raise BoxInventoryException("Failed to query installed Vagrant boxes: error='{}'".format(e))
 
             self._box_lookup = {}
-            for box_line in box_lines.splitlines():
+            for box_line in box_lines:
                 match = re.search('^([^\s]+)\s+\(([^,]+),\s+([^\)]+)\)', box_line)
                 if match:
                     installed_name, installed_provider, installed_version_str = match.groups()
@@ -282,7 +296,13 @@ class BoxInventory(object):
                     else:
                         provider_lookup = self._box_lookup.setdefault(installed_name, {})
                         version_list = provider_lookup.setdefault(installed_provider, [])
-                        version_list.append(installed_version)
+                        insert_at, match_at = get_version_index(installed_version, version_list)
+                        if not match_at:
+                            if insert_at is not None:
+                                version_list.insert(insert_at, installed_version)
+
+                            else:
+                                version_list.append(installed_version)
 
     def _reset(self):
         self._box_lookup = None
@@ -294,7 +314,7 @@ class BoxInventory(object):
         version_list = provider_lookup.get(provider, [])
 
         if version is None:
-            return bool(version_list)
+            return version_list[0] if version_list else None
 
         version_val = parse_version(version)
 
@@ -310,7 +330,174 @@ class BoxInventory(object):
                 run_command(command)
 
             except ProcessException as e:
-                raise BoxInventoryException("Failed to install Vagrant box: name='{}' provider='{}' error='{}'".format(name, provider, e))
+                raise BoxInventoryException("Failed to install Vagrant box: name='{}' provider='{}' error='{}'".format(
+                    name,
+                    provider,
+                    e
+                ))
 
             finally:
                 self._reset()
+
+    def export(self, temp_dir, name, provider, version = None):
+        if self.installed(name, provider, version):
+            command = "vagrant box repackage {} {} {}".format(name, provider, version)
+
+            try:
+                run_command(command, working_dir = temp_dir)
+
+            except ProcessException as e:
+                raise BoxInventoryException("Failed to export Vagrant box: name='{}' provider='{}' error='{}'".format(
+                    name,
+                    provider,
+                    e
+                ))
+
+            return os.path.join(temp_dir, REPACKAGED_VAGRANT_BOX_FILE_NAME)
+
+        else:
+            raise BoxInventoryException("Vagrant box is not installed: name='{}' provider='{}'".format(name, provider))
+
+    @staticmethod
+    def extract(box_file_name, temp_dir):
+        try:
+            command = "tar -xzvf '{}' -C '{}'".format(box_file_name, temp_dir)
+            run_command(command, quiet = True)
+
+        except ProcessException as e:
+            raise BoxInventoryException('Failed to extract Vagrant box files: {}'.format(e))
+
+        file_list = os.listdir(temp_dir)
+
+        return dict([(file_name, os.path.join(temp_dir, file_name)) for file_name in file_list])
+
+
+def parse_vagrant_export(config, packer_config):
+    if config.vagrant:
+        vagrant_config = {
+            'type': 'vagrant'
+        }
+
+        if config.vagrant_output:
+            vagrant_config['output'] = config.vagrant_output
+
+        if config.vagrant_keep_inputs:
+            vagrant_config['keep_input_artifact'] = True
+
+        packer_config.add_post_processor(vagrant_config)
+
+
+class PublishException(Exception):
+    pass
+
+
+def publish_vagrant_box(config, target_list):
+    if not config.vagrant_output:
+        return
+
+    if config.vm_version is None:
+        log.info('Unable to publish Vagrant version file as vm_version parameter not set.')
+        return
+
+    box_metadata_file_name, target_file_lookup = get_vagrant_output_file_names(config, target_list)
+
+    box_metadata = get_or_create_vagrant_box_metadata(config, box_metadata_file_name)
+
+    add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup)
+
+    log.info('Writing updated Vagrant box metadata: {}'.format(box_metadata_file_name))
+    box_metadata.write(box_metadata_file_name)
+
+    if 'vagrant_publish_copy_command' in config:
+        copy_published_file(config, box_metadata_file_name)
+
+    log.info('Publish complete')
+
+
+def get_vagrant_output_file_names(config, target_list):
+    target_file_lookup = {}
+    box_metadata_file_name = None
+
+    if config.vagrant_output is not None:
+        match = re.search('^(.+)\{\{\s*\.Provider\s*\}\}(.+)$', config.vagrant_output)
+        if match:
+            file_format_name = match.group(1) + '{}' + match.group(2)
+
+            vagrant_output_path = os.path.dirname(file_format_name)
+            box_metadata_file_name = os.path.join(vagrant_output_path, '{}.json'.format(config.vm_name))
+
+            for target_name in target_list:
+                provider_file_name = file_format_name.format(target_name)
+
+                if not os.path.exists(provider_file_name):
+                    raise PublishException('Unable to find Vagrant box file: {}'.format(provider_file_name))
+
+                target_file_lookup[target_name] = provider_file_name
+
+    if not box_metadata_file_name:
+        raise PublishException('Unable to determine Vagrant box metadata output file name')
+
+    if not target_file_lookup:
+        raise PublishException('No Vagrant box files found')
+
+    return box_metadata_file_name, target_file_lookup
+
+
+def get_or_create_vagrant_box_metadata(config, box_metadata_file_name):
+    box_metadata = None
+    if box_metadata is None and config.vagrant_publish_url_prefix:
+        box_url = '{}{}.json'.format(config.vagrant_publish_url_prefix, config.vm_name)
+
+        try:
+            log.info('Attemping to retrieve Vagrant box metadata: {}'.format(box_url))
+            box_metadata = BoxMetadata(url = box_url)
+
+        except BoxMetadataException:
+            log.warning('Failed to download Vagrant box metadata: {}'.format(box_url))
+
+    if box_metadata is None and os.path.exists(box_metadata_file_name):
+        box_url = 'file://{}'.format(os.path.abspath(box_metadata_file_name))
+        log.info('Loading Vagrant box metadata: {}'.format(box_url))
+
+        box_metadata = BoxMetadata(url = box_url)
+
+    if box_metadata is None:
+        log.info('Creating new Vagrant box metadata: {}'.format(box_metadata_file_name))
+        box_metadata = BoxMetadata(name = config.vm_name)
+
+    return box_metadata
+
+
+def add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup):
+    for provider_name, provider_file_name in target_file_lookup.iteritems():
+        if 'vagrant_publish_copy_command' in config:
+            copy_published_file(config, provider_file_name)
+
+        if config.vagrant_publish_url_prefix:
+            box_url = '{}{}'.format(
+                config.vagrant_publish_url_prefix,
+                os.path.basename(provider_file_name),
+            )
+
+        else:
+            box_url = 'file://{}'.format(os.path.abspath(provider_file_name))
+
+        box_checksum = get_md5_sum(provider_file_name)
+        box_checksum_type = 'md5'
+
+        box_metadata.add_version(config.vm_version, provider_name, box_url, box_checksum, box_checksum_type)
+
+
+def copy_published_file(config, file_name):
+    tmp_path = config.FILE_PATH
+    tmp_name = config.FILE_NAME
+
+    config.FILE_PATH = file_name
+    config.FILE_NAME = os.path.basename(file_name)
+    copy_cmd = config.vagrant_publish_copy_command
+
+    log.info('Executing Vagrant publish copy command: {}'.format(copy_cmd))
+    run_command(copy_cmd)
+
+    config.FILE_PATH = tmp_path
+    config.FILE_NAME = tmp_name

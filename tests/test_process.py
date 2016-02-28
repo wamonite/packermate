@@ -20,6 +20,6 @@ def test_run_command_error():
     with pytest.raises(ProcessException) as e:
         run_command('cat {}'.format(data))
 
-    assert e.value.output_std == ''
-    assert e.value.output_err == 'cat: {}: No such file or directory\n'.format(data)
+    assert e.value.log_stdout == ''
+    assert e.value.log_stderr == 'cat: {}: No such file or directory\n'.format(data)
     assert e.value.exit_code != 0
