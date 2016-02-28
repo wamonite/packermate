@@ -416,7 +416,7 @@ class Config(object):
         for override_text in override_list:
             val_list = override_text.split('=')
             if len(val_list) != 2:
-                raise ConfigException("Invalid parameter: value='{}'".format(override_text))
+                raise ConfigException("Invalid parameter: '{}'".format(override_text))
 
             override_lookup[val_list[0]] = val_list[1]
 

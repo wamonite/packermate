@@ -10,6 +10,7 @@ from string import Template
 import yaml
 import yaml.scanner
 import hashlib
+from .process import run_command, ProcessException
 
 
 # https://stackoverflow.com/questions/2890146/how-to-force-pyyaml-to-load-strings-as-unicode-objects
@@ -67,6 +68,23 @@ class DataDir(object):
             return json.load(file_object)
 
 
+class UnarchiveException(Exception):
+    pass
+
+
+def unarchive_file(box_file_name, temp_dir):
+    try:
+        command = "tar -xzvf '{}' -C '{}'".format(box_file_name, temp_dir)
+        run_command(command, quiet = True)
+
+    except ProcessException as e:
+        raise UnarchiveException("Failed to unarchive file: file='{}' error='{}'".format(box_file_name, e))
+
+    file_list = os.listdir(temp_dir)
+
+    return dict([(file_name, os.path.join(temp_dir, file_name)) for file_name in file_list])
+
+
 def get_md5_sum(file_name):
     md5 = hashlib.md5()
     with open(file_name, 'rb') as file_object:
@@ -96,11 +114,6 @@ def read_yaml_string(data):
 
     except yaml.scanner.ScannerError:
         return None
-
-
-# def write_yaml_file(data, file_name):
-#     with open(file_name, 'w') as file_object:
-#         yaml.dump(data, file_object, indent = 4, default_flow_style = False)
 
 
 def write_json_file(data, file_name):

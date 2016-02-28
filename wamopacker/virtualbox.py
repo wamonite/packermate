@@ -3,6 +3,7 @@
 
 from __future__ import print_function, unicode_literals
 from .target import TargetBase, TargetException, TargetParameter, parse_parameters
+from .file_utils import unarchive_file
 import os
 import logging
 
@@ -35,7 +36,7 @@ class TargetVirtualBox(TargetBase):
         else:
             log.info('Building OVF configuration')
 
-            self._build_from_vagrant_box_url('virtualbox')
+            self._box_inventory.install_from_config(self._config, 'virtualbox')
 
             self._build_from_vagrant_box()
 
@@ -98,7 +99,7 @@ class TargetVirtualBox(TargetBase):
             file_object.write(preseed_text)
 
     def _build_from_vagrant_box(self):
-        self._config.virtualbox_vagrant_box_file = self._export_vagrant_box('virtualbox')
+        self._config.virtualbox_vagrant_box_file = self._box_inventory.export_from_config(self._config, 'virtualbox', self._temp_dir)
 
     def _build_from_vagrant_box_file(self):
         if 'virtualbox_vagrant_box_file' not in self._config:
@@ -106,7 +107,7 @@ class TargetVirtualBox(TargetBase):
 
         log.info('Extracting VirtualBox OVF file from Vagrant box')
 
-        file_name_lookup = self._box_inventory.extract(
+        file_name_lookup = unarchive_file(
             self._config.virtualbox_vagrant_box_file,
             self._temp_dir,
         )

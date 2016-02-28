@@ -3,6 +3,7 @@
 
 from __future__ import print_function, unicode_literals
 from .target import TargetBase, TargetException, TargetParameter, parse_parameters
+from .file_utils import unarchive_file
 import re
 import logging
 
@@ -25,7 +26,7 @@ class TargetAWS(TargetBase):
         self._config = self._config.provider('aws')
 
     def build(self):
-        self._build_from_vagrant_box_url('aws')
+        self._box_inventory.install_from_config(self._config, 'aws')
 
         self._build_from_vagrant_box()
 
@@ -34,7 +35,7 @@ class TargetAWS(TargetBase):
         self._build_from_ami_id()
 
     def _build_from_vagrant_box(self):
-        self._config.aws_vagrant_box_file = self._export_vagrant_box('aws')
+        self._config.aws_vagrant_box_file = self._box_inventory.export_from_config(self._config, 'aws', self._temp_dir)
 
     def _build_from_vagrant_box_file(self):
         if 'aws_vagrant_box_file' not in self._config:
@@ -42,7 +43,7 @@ class TargetAWS(TargetBase):
 
         log.info('Extracting AWS Vagrantfile from Vagrant box')
 
-        file_name_lookup = self._box_inventory.extract(
+        file_name_lookup = unarchive_file(
             self._config.aws_vagrant_box_file,
             self._temp_dir,
         )

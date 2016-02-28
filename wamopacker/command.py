@@ -5,7 +5,7 @@ from __future__ import print_function, unicode_literals
 import os
 from .process import run_command, ProcessException
 from .file_utils import TempDir, DataDir, write_json_file
-from .vagrant import BoxMetadata, parse_vagrant_export, publish_vagrant_box
+from .vagrant import BoxMetadata, BoxInventory, parse_vagrant_export, publish_vagrant_box
 from .virtualbox import TargetVirtualBox
 from .aws import TargetAWS
 from .provisioner import parse_provisioners
@@ -90,12 +90,13 @@ class Builder(object):
         with TempDir(self._config.temp_dir) as temp_dir_object:
             temp_dir = temp_dir_object.path
 
+            box_inventory = BoxInventory()
             for target_name in self._target_list:
                 target_class = self.TARGET_LOOKUP.get(target_name)
                 if not target_class:
                     raise BuilderException('Unknown target: {}'.format(target_name))
 
-                target = target_class(self._config, self._data_dir, packer_config, temp_dir)
+                target = target_class(self._config, self._data_dir, packer_config, temp_dir, box_inventory)
                 target.build()
 
             if self._config.provisioners:

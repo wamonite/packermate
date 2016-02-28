@@ -339,6 +339,18 @@ class BoxInventory(object):
             finally:
                 self._reset()
 
+    def install_from_config(self, config, provider):
+        if 'vagrant_box_name' not in config:
+            return
+
+        box_url = config.vagrant_box_url or config.vagrant_box_name
+        box_version = config.vagrant_box_version
+
+        log.info('Checking for local Vagrant box: {} {}'.format(config.vagrant_box_name, box_version or ''))
+        if not self.installed(config.vagrant_box_name, provider, box_version):
+            log.info('Installing Vagrant box: {} {}'.format(box_url, box_version or ''))
+            self.install(box_url, provider, box_version)
+
     def export(self, temp_dir, name, provider, version = None):
         if self.installed(name, provider, version):
             command = "vagrant box repackage {} {} {}".format(name, provider, version)
@@ -358,18 +370,22 @@ class BoxInventory(object):
         else:
             raise BoxInventoryException("Vagrant box is not installed: name='{}' provider='{}'".format(name, provider))
 
-    @staticmethod
-    def extract(box_file_name, temp_dir):
-        try:
-            command = "tar -xzvf '{}' -C '{}'".format(box_file_name, temp_dir)
-            run_command(command, quiet = True)
+    def export_from_config(self, config, provider, temp_dir):
+        if 'vagrant_box_name' not in config:
+            return
 
-        except ProcessException as e:
-            raise BoxInventoryException('Failed to extract Vagrant box files: {}'.format(e))
+        box_version = config.vagrant_box_version
+        if not box_version:
+            box_version = self.installed(config.vagrant_box_name, provider)
 
-        file_list = os.listdir(temp_dir)
+        log.info('Exporting installed Vagrant box: {} {}'.format(config.vagrant_box_name, box_version or ''))
 
-        return dict([(file_name, os.path.join(temp_dir, file_name)) for file_name in file_list])
+        return self.export(
+            temp_dir,
+            config.vagrant_box_name,
+            provider,
+            box_version
+        )
 
 
 def parse_vagrant_export(config, packer_config):
@@ -443,7 +459,7 @@ def get_vagrant_output_file_names(config, target_list):
     return box_metadata_file_name, target_file_lookup
 
 
-def get_or_create_vagrant_box_metadata(config, box_metadata_file_name):
+def get_vagrant_box_metadata(config, box_metadata_file_name):
     box_metadata = None
     if box_metadata is None and config.vagrant_publish_url_prefix:
         box_url = '{}{}.json'.format(config.vagrant_publish_url_prefix, config.vm_name)
@@ -460,6 +476,12 @@ def get_or_create_vagrant_box_metadata(config, box_metadata_file_name):
         log.info('Loading Vagrant box metadata: {}'.format(box_url))
 
         box_metadata = BoxMetadata(url = box_url)
+
+    return box_metadata
+
+
+def get_or_create_vagrant_box_metadata(config, box_metadata_file_name):
+    box_metadata = get_vagrant_box_metadata(config, box_metadata_file_name)
 
     if box_metadata is None:
         log.info('Creating new Vagrant box metadata: {}'.format(box_metadata_file_name))
