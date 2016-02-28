@@ -430,7 +430,7 @@ def publish_vagrant_box(config, target_list):
     log.info('Publish complete')
 
 
-def get_vagrant_output_file_names(config, target_list):
+def get_vagrant_output_file_names(config, target_list, check_file = True):
     target_file_lookup = {}
     box_metadata_file_name = None
 
@@ -445,7 +445,7 @@ def get_vagrant_output_file_names(config, target_list):
             for target_name in target_list:
                 provider_file_name = file_format_name.format(target_name)
 
-                if not os.path.exists(provider_file_name):
+                if check_file and not os.path.exists(provider_file_name):
                     raise PublishException('Unable to find Vagrant box file: {}'.format(provider_file_name))
 
                 target_file_lookup[target_name] = provider_file_name
