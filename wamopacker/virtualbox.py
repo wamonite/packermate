@@ -29,12 +29,12 @@ class TargetVirtualBox(TargetBase):
 
     def build(self):
         if self._config.virtualbox_iso_url:
-            log.info('Building ISO configuration')
+            log.info('Configuring ISO build')
 
             self._build_iso()
 
         else:
-            log.info('Building OVF/OVA configuration')
+            log.info('Configuring OVF/OVA build')
 
             self._box_inventory.install_from_config(self._config, 'virtualbox')
 

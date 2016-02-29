@@ -65,7 +65,7 @@ class TargetAWS(TargetBase):
         if 'aws_ami_id' not in self._config:
             return
 
-        log.info('Building from AWS AMI')
+        log.info('Configuring AWS AMI build')
 
         packer_amazon_ebs = {
             'type': 'amazon-ebs'
