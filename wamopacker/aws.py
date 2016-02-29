@@ -72,16 +72,16 @@ class TargetAWS(TargetBase):
         }
 
         config_key_list = (
-            TargetParameter('aws_access_key', 'access_key'),
-            TargetParameter('aws_secret_key', 'secret_key'),
+            TargetParameter('aws_access_key', 'access_key', default = '(( env|AWS_ACCESS_KEY_ID ))'),
+            TargetParameter('aws_secret_key', 'secret_key', default = '(( env|AWS_SECRET_ACCESS_KEY ))'),
+            TargetParameter('aws_region', 'region', default = '(( env|AWS_DEFAULT_REGION ))'),
             TargetParameter('aws_ami_id', 'source_ami'),
-            TargetParameter('aws_region', 'region'),
             TargetParameter('aws_ami_name', 'ami_name', default = 'wamopacker {{ isotime \"2006-01-02 15-04\" }}'),
             TargetParameter('aws_ami_force_deregister', 'force_deregister', value_type = bool, default = False),
             TargetParameter('aws_instance_type', 'instance_type'),
-            TargetParameter('aws_user', 'ssh_username'),
+            TargetParameter('ssh_user', 'ssh_username'),
+            TargetParameter('ssh_key_file', 'ssh_private_key_file', required = False),
             TargetParameter('aws_keypair_name', 'ssh_keypair_name', required = False),
-            TargetParameter('aws_private_key_file', 'ssh_private_key_file', required = False),
             TargetParameter('aws_disk_gb', 'volume_size', value_type = int, required = False),
             TargetParameter('aws_disk_type', 'volume_type', required = False),
             TargetParameter('aws_ami_tags', 'tags', value_type = dict, required = False),
