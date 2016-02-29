@@ -408,7 +408,7 @@ def test_box_inventory_installed(mock_box_list):
         for provider in ('aws', 'virtualbox', 'unknown'):
             print('check installed: missing-box {}'.format(provider))
 
-            assert not inventory.installed('missing-box', provider)
+            assert inventory.installed('missing-box', provider) is None
 
             print('check installed: {} {}'.format(box_name, provider))
 
@@ -420,15 +420,15 @@ def test_box_inventory_installed(mock_box_list):
                 print('check installed: {} {} {}'.format(box_name, provider, version))
 
                 try:
-                    parse_version(version)
+                    version_val = parse_version(version)
 
                 except BoxVersionException:
                     with pytest.raises(BoxVersionException):
                         inventory.installed(box_name, provider, version)
 
                 else:
-                    result = version in version_list
-                    assert result == inventory.installed(box_name, provider, version)
+                    result = version_val if version_val in version_list else None
+                    assert inventory.installed(box_name, provider, version) == result
 
 
 @pytest.fixture(

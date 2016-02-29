@@ -317,11 +317,10 @@ class BoxInventory(object):
             return version_list[0] if version_list else None
 
         version_val = parse_version(version)
-
-        return version_val in version_list
+        return version_val if version_val in version_list else None
 
     def install(self, name, provider, version = None):
-        if not self.installed(name, provider, version):
+        if self.installed(name, provider, version) is None:
             command = 'vagrant box add --provider {} {}'.format(provider, name)
             if version:
                 command += ' --box-version {}'.format(version)
