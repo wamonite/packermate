@@ -4,15 +4,16 @@
 from __future__ import print_function, unicode_literals
 import pytest
 from wamopacker.config import (
-    Config, ConfigValue, ConfigProvider,
+    Config, ConfigValue,
     ConfigException, ConfigLoadException,
     CONFIG_DEFAULTS, ENV_VAR_PREFIX
 )
 import logging
 import os
-from tempfile import mkdtemp
-from shutil import rmtree
 import yaml
+import struct
+import base64
+import tarfile
 
 
 log = logging.getLogger('wamopacker.test_config')
@@ -52,6 +53,7 @@ string
 """,
 )
 MISSING_FILE_NAME = '/file/does/not/exist.yml'
+TGZ_FILE_NAME = 'data.tgz'
 
 
 # Config default fixtures
@@ -125,6 +127,8 @@ empty: ''
         ('(( env | {} ))'.format(TEST_VAR_KEY), TEST_VAR_VALUE),
         ('(( lookup_optional | {} | foo ))'.format(MISSING_FILE_NAME), 'foo'),
         ('(( lookup_optional | {} | (( foo )) ))'.format(MISSING_FILE_NAME), '123'),
+        ('(( base64_encode | 123 ))', 'MTIz'),
+        ('(( base64_decode | (( base64_encode | 123 )) ))', '123'),
     ),
 )
 def test_config_value(config_value_config, config_val_str, expected):
@@ -165,6 +169,61 @@ def test_config_value_error(config_value_config, config_val_str):
     config_value = ConfigValue(config_value_config, config_val_str)
     with pytest.raises(ConfigException):
         config_value.evaluate()
+
+
+def _write_file_data(file_object, file_type, file_data):
+    if file_type in ('text', 'data'):
+        file_object.write(file_data)
+
+
+@pytest.fixture()
+def config_binary_files(temp_dir):
+    file_lookup = {
+        'text': ('file.txt', '0123456789'),
+        'data': ('data.txt', reduce(lambda x, y: x + y, map(lambda x: struct.pack('B', x), range(256)))),
+    }
+
+    file_output = {}
+    tar_file_name = os.path.join(temp_dir, TGZ_FILE_NAME)
+    with tarfile.open(tar_file_name, "w:gz") as tar_file:
+        for file_type, file_info in file_lookup.iteritems():
+            file_name, file_data = file_info
+            file_name_full = os.path.join(temp_dir, file_name)
+
+            with open(file_name_full, 'wb') as file_object:
+                _write_file_data(file_object, file_type, file_data)
+
+            file_output[file_type] = (file_name_full, file_data)
+
+            tar_file.add(file_name_full, arcname = file_name)
+
+    file_output['tgz'] = (tar_file_name, None)
+
+    return file_output
+
+
+def test_config_value_files(config_binary_files):
+    for file_type, file_info in config_binary_files.iteritems():
+        file_name, file_data = file_info
+
+        if file_type == 'tgz':
+            config_str = "---\nfile_val: (( file | {} | {} | file.txt ))".format(file_type, file_name)
+
+        else:
+            config_str = "---\nfile_val: (( file | {} | {} ))".format(file_type, file_name)
+
+        config = Config(config_string = config_str)
+
+        result = config.file_val
+
+        if file_type == 'data':
+            result = base64.b64decode(result)
+
+        if file_data is not None:
+            assert result == file_data
+
+        else:
+            assert config.file_val is not None
 
 
 # Config attributes and lookups
@@ -266,25 +325,6 @@ def test_config_env_var_missing_default(config_no_env_vars):
 
 
 # Config from file
-
-@pytest.fixture()
-def temp_dir(request):
-    temp_dir_name = mkdtemp(prefix = 'wamopacker_pytest')
-    log.info('created temp dir: {}'.format(temp_dir_name))
-
-    current_dir = os.getcwd()
-
-    def remove_temp_dir():
-        if temp_dir_name:
-            log.info('removing temp dir: {}'.format(temp_dir_name))
-            rmtree(temp_dir_name)
-
-        os.chdir(current_dir)
-
-    request.addfinalizer(remove_temp_dir)
-
-    return temp_dir_name
-
 
 @pytest.fixture()
 def yaml_file_lookup(temp_dir):

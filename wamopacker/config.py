@@ -7,6 +7,8 @@ import re
 import os
 import uuid
 from .file_utils import read_yaml_file, read_yaml_string
+import base64
+import tarfile
 import logging
 
 
@@ -109,74 +111,124 @@ class ConfigValue(object):
     def _process(self, value):
         value_list = map(lambda val_str: val_str.strip(), value.split('|'))
         value_list_len = len(value_list)
-        val_new = None
 
-        if value_list_len == 3:
-            val_type, val_name, val_extra = value_list
+        process_func_list = (
+            ((), 1, self._process_name),
+            (('env',), 1, get_env_var),
+            (('env',), 2, get_env_var),
+            (('uuid',), 1, self._config.get_uuid),
+            (('base64_encode',), 1, base64.b64encode),
+            (('base64_decode',), 1, base64.b64decode),
+            (('default',), 2, get_default_value),
+            (('lookup',), 2, get_lookup_value),
+            (('lookup_optional',), 2, get_lookup_optional_value),
+            (('file', 'text'), 1, get_file_text),
+            (('file', 'data'), 1, get_file_data),
+            (('file', 'tgz'), 2, get_tgz_file_data),
+        )
+        process_func = None
+        process_args = []
+        process_key_arg_len = -1
+        for process_func_key, func_arg_len, func in process_func_list:
+            process_func_key_len = len(process_func_key)
+            key_arg_len = process_func_key_len + func_arg_len
 
-            if val_type == 'env':
-                try:
-                    val_new = self._get_env_var(val_name)
+            if key_arg_len == value_list_len:
+                val_func_key = tuple(value_list[:process_func_key_len])
 
-                except ConfigException:
-                    val_new = val_extra
+                if process_func_key == val_func_key and process_key_arg_len < key_arg_len:
+                    process_func = func
+                    process_args = value_list[process_func_key_len:]
+                    process_key_arg_len = value_list_len
 
-            elif val_type == 'lookup':
-                lookup = read_yaml_file(val_name)
-                if lookup is None:
-                    raise ConfigException('Unable to load lookup: {}'.format(val_name))
+        if not process_func:
+            raise ConfigException("Unable to find matching parameter method: {}".format(value))
 
-                else:
-                    if not isinstance(lookup, dict):
-                        raise ConfigException('Lookup file should be a dictionary: {}'.format(val_name))
-
-                    val_new = lookup[val_extra] if val_extra in lookup else val_extra
-
-            elif val_type == 'lookup_optional':
-                lookup = read_yaml_file(val_name)
-                if lookup is None:
-                    val_new = val_extra
-
-                else:
-                    if not isinstance(lookup, dict):
-                        raise ConfigException('Lookup file should be a dictionary: {}'.format(val_name))
-
-                    val_new = lookup[val_extra] if val_extra in lookup else val_extra
-
-            elif val_type == 'default':
-                val_new = val_name or val_extra
-
-        if value_list_len == 2:
-            val_type, val_name = value_list
-
-            if val_type == 'env':
-                val_new = self._get_env_var(val_name)
-
-            elif val_type == 'uuid':
-                val_new = self._config.get_uuid(val_name)
-
-        elif value_list_len == 1:
-            val_name = value_list[0]
-
-            if val_name not in self._config:
-                raise ConfigException('Unknown config parameter: {}'.format(val_name))
-
-            val_new = getattr(self._config, val_name)
-
-        if val_new is None:
-            raise ConfigException('Invalid config parameter substitution')
+        val_new = process_func(*process_args)
 
         if not isinstance(val_new, basestring):
             val_new = '{}'.format(val_new)
 
         return val_new
 
-    @staticmethod
-    def _get_env_var(var_name):
-        if var_name in os.environ:
-            return os.environ[var_name]
+    def _process_name(self, name):
+        if name not in self._config:
+            raise ConfigException('Unknown config parameter: {}'.format(name))
 
-        raise ConfigException("Environment variable not found: {}".format(var_name))
+        return getattr(self._config, name)
+
+
+def get_env_var(name, default = None):
+    if name in os.environ:
+        return os.environ[name]
+
+    if default is None:
+        raise ConfigException('Environment variable not found: {}'.format(name))
+
+    return default
+
+
+def get_default_value(value, default):
+    return value or default
+
+
+def get_lookup_value(file_name, key_name, optional = False):
+    lookup = read_yaml_file(file_name)
+    if lookup is None:
+        if optional:
+            return key_name
+
+        raise ConfigException('Unable to load lookup: {}'.format(file_name))
+
+    else:
+        if not isinstance(lookup, dict):
+            raise ConfigException('Lookup file should be a dictionary: {}'.format(file_name))
+
+        return lookup[key_name] if key_name in lookup else key_name
+
+
+def get_lookup_optional_value(file_name, key_name):
+    return get_lookup_value(file_name, key_name, optional = True)
+
+
+def get_file_data(file_name, encode = True):
+    try:
+        with open(file_name, 'rb') as file_object:
+            file_data = file_object.read()
+            return base64.b64encode(file_data) if encode else file_data
+
+    except IOError as e:
+        raise ConfigException("Unable to load file: name='{}' error='{}'".format(file_name, e))
+
+
+def get_file_text(file_name):
+    return get_file_data(file_name, encode = False)
+
+
+def get_tar_file_data(tar_type, tar_name, file_name):
+    tar_type_lookup = {
+        'tgz': 'r:gz'
+    }
+    tar_mode = tar_type_lookup.get(tar_type)
+    if tar_mode is None:
+        raise ConfigException("Unknown tar type: name='{}' type='{}'".format(tar_name, tar_type))
+
+    try:
+        with tarfile.open(name = tar_name, mode = tar_mode) as tar_file:
+            for tar_info in tar_file:
+                if file_name == tar_info.name:
+                    file_object = tar_file.extractfile(tar_info)
+                    file_data = file_object.read()
+                    return base64.b64encode(file_data)
+
+    except IOError as e:
+        raise ConfigException("Unable to load tar file: tar='{}' error='{}'".format(tar_name, e))
+
+    raise ConfigException("Unable to find file: tar='{}' file='{}'".format(tar_name, file_name))
+
+
+def get_tgz_file_data(tar_name, file_name):
+    return get_tar_file_data('tgz', tar_name, file_name)
 
 
 class ConfigFileLoader(object):
