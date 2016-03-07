@@ -21,5 +21,5 @@ def test_run_command_error():
         run_command('cat {}'.format(data))
 
     assert e.value.log_stdout == ''
-    assert e.value.log_stderr == 'cat: {}: No such file or directory\n'.format(data)
+    assert e.value.log_stderr.startswith('cat: {}'.format(data))
     assert e.value.exit_code != 0
