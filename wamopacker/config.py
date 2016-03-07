@@ -9,6 +9,7 @@ import uuid
 from .file_utils import read_yaml_file, read_yaml_string
 import base64
 import tarfile
+from collections import namedtuple
 import logging
 
 
@@ -40,6 +41,8 @@ class ConfigLoadFormatException(ConfigLoadException):
 
 
 class ConfigValue(object):
+
+    ProcessFuncInfo = namedtuple('ProcessFuncInfo', ('key', 'argument_count', 'function'))
 
     def __init__(self, config, value = None):
         self._config = config
@@ -113,38 +116,35 @@ class ConfigValue(object):
         value_list_len = len(value_list)
 
         process_func_list = (
-            ((), 1, self._process_name),
-            (('env',), 1, get_env_var),
-            (('env',), 2, get_env_var),
-            (('uuid',), 1, self._config.get_uuid),
-            (('base64_encode',), 1, base64.b64encode),
-            (('base64_decode',), 1, base64.b64decode),
-            (('default',), 2, get_default_value),
-            (('lookup',), 2, get_lookup_value),
-            (('lookup_optional',), 2, get_lookup_optional_value),
-            (('file', 'text'), 1, get_file_text),
-            (('file', 'data'), 1, get_file_data),
-            (('file', 'tgz'), 2, get_tgz_file_data),
+            self.ProcessFuncInfo((), 1, self._process_name),
+            self.ProcessFuncInfo(('env',), 2, get_env_var),
+            self.ProcessFuncInfo(('env',), 3, get_env_var),
+            self.ProcessFuncInfo(('uuid',), 2, self._config.get_uuid),
+            self.ProcessFuncInfo(('base64_encode',), 2, base64.b64encode),
+            self.ProcessFuncInfo(('base64_decode',), 2, base64.b64decode),
+            self.ProcessFuncInfo(('default',), 3, get_default_value),
+            self.ProcessFuncInfo(('lookup',), 3, get_lookup_value),
+            self.ProcessFuncInfo(('lookup_optional',), 3, get_lookup_optional_value),
+            self.ProcessFuncInfo(('file', 'text'), 3, get_file_text),
+            self.ProcessFuncInfo(('file', 'data'), 3, get_file_data),
+            self.ProcessFuncInfo(('file', 'tgz'), 4, get_tgz_file_data),
         )
-        process_func = None
-        process_args = []
-        process_key_arg_len = -1
-        for process_func_key, func_arg_len, func in process_func_list:
-            process_func_key_len = len(process_func_key)
-            key_arg_len = process_func_key_len + func_arg_len
 
-            if key_arg_len == value_list_len:
+        process_func_found = None
+        for process_func_info in process_func_list:
+            if process_func_info.argument_count == value_list_len:
+                process_func_key_len = len(process_func_info.key)
                 val_func_key = tuple(value_list[:process_func_key_len])
 
-                if process_func_key == val_func_key and process_key_arg_len < key_arg_len:
-                    process_func = func
-                    process_args = value_list[process_func_key_len:]
-                    process_key_arg_len = value_list_len
+                if process_func_info.key == val_func_key and (process_func_found is None or process_func_info.argument_count > process_func_found.argument_count):
+                    process_func_found = process_func_info
 
-        if not process_func:
+        if not process_func_found:
             raise ConfigException("Unable to find matching parameter method: {}".format(value))
 
-        val_new = process_func(*process_args)
+        process_func_found_key_len = len(process_func_found.key)
+        process_func_args = value_list[process_func_found_key_len:]
+        val_new = process_func_found.function(*process_func_args)
 
         if not isinstance(val_new, basestring):
             val_new = '{}'.format(val_new)

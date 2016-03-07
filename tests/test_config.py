@@ -184,46 +184,64 @@ def config_binary_files(temp_dir):
     }
 
     file_output = {}
-    tar_file_name = os.path.join(temp_dir, TGZ_FILE_NAME)
-    with tarfile.open(tar_file_name, "w:gz") as tar_file:
-        for file_type, file_info in file_lookup.iteritems():
-            file_name, file_data = file_info
-            file_name_full = os.path.join(temp_dir, file_name)
+    for file_type, file_info in file_lookup.iteritems():
+        file_name, file_data = file_info
+        file_name_full = os.path.join(temp_dir, file_name)
 
-            with open(file_name_full, 'wb') as file_object:
-                _write_file_data(file_object, file_type, file_data)
+        with open(file_name_full, 'wb') as file_object:
+            _write_file_data(file_object, file_type, file_data)
 
-            file_output[file_type] = (file_name_full, file_data)
-
-            tar_file.add(file_name_full, arcname = file_name)
-
-    file_output['tgz'] = (tar_file_name, None)
+        file_output[file_type] = (file_name_full, file_data)
 
     return file_output
+
+
+@pytest.fixture()
+def config_binary_archive(temp_dir, config_binary_files):
+    tar_file_name = os.path.join(temp_dir, TGZ_FILE_NAME)
+    with tarfile.open(tar_file_name, "w:gz") as tar_file:
+        for file_type, file_info in config_binary_files.iteritems():
+            file_name, file_data = file_info
+            file_name_short = os.path.basename(file_name)
+            tar_file.add(file_name, arcname = file_name_short)
+
+    return config_binary_files, tar_file_name
+
+
+def check_file_content(file_type, result, expected):
+    if file_type == 'data':
+        result = base64.b64decode(result)
+
+    assert result == expected
 
 
 def test_config_value_files(config_binary_files):
     for file_type, file_info in config_binary_files.iteritems():
         file_name, file_data = file_info
 
-        if file_type == 'tgz':
-            config_str = "---\nfile_val: (( file | {} | {} | file.txt ))".format(file_type, file_name)
-
-        else:
-            config_str = "---\nfile_val: (( file | {} | {} ))".format(file_type, file_name)
+        config_str = "---\nfile_val: (( file | {} | {} ))".format(file_type, file_name)
 
         config = Config(config_string = config_str)
 
         result = config.file_val
 
-        if file_type == 'data':
-            result = base64.b64decode(result)
+        check_file_content(file_type, result, file_data)
 
-        if file_data is not None:
-            assert result == file_data
 
-        else:
-            assert config.file_val is not None
+def test_config_value_archive(config_binary_archive):
+    config_binary_files, tar_file_name = config_binary_archive
+
+    for file_type, file_info in config_binary_files.iteritems():
+        file_name, file_data = file_info
+        file_name_short = os.path.basename(file_name)
+
+        config_str = "---\nfile_val: (( file | tgz | {} | {} ))".format(tar_file_name, file_name_short)
+
+        config = Config(config_string = config_str)
+
+        result = config.file_val
+
+        check_file_content('data', result, file_data)
 
 
 # Config attributes and lookups
