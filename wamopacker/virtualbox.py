@@ -11,7 +11,7 @@ import logging
 log = logging.getLogger('wamopacker.virtualbox')
 
 
-__all__ = ['TargetVirtualBox']
+__all__ = ['TargetVirtualBox', 'TargetVirtualBoxException']
 
 
 class TargetVirtualBoxException(TargetException):
@@ -48,7 +48,7 @@ class TargetVirtualBox(TargetBase):
         iso_build_config = self._data_dir.read_json('packer_virtualbox_iso')
 
         param_list = (
-            TargetParameter('virtualbox_output_name', 'vm_name', func = _to_machine_name),
+            TargetParameter('virtualbox_output_name', 'vm_name', func = to_machine_name),
             TargetParameter('virtualbox_iso_url', 'iso_url'),
             TargetParameter('virtualbox_iso_checksum', 'iso_checksum'),
             TargetParameter('virtualbox_iso_checksum_type', 'iso_checksum_type', default = 'md5'),
@@ -124,7 +124,7 @@ class TargetVirtualBox(TargetBase):
         packer_virtualbox_ovf = self._data_dir.read_json('packer_virtualbox_ovf')
 
         param_list = (
-            TargetParameter('virtualbox_output_name', 'vm_name', func = _to_machine_name),
+            TargetParameter('virtualbox_output_name', 'vm_name', func = to_machine_name),
             TargetParameter('ssh_user', 'ssh_username'),
             TargetParameter('ssh_password', 'ssh_password', required = False),
             TargetParameter('ssh_key_file', 'ssh_key_path', required = False),  # https://github.com/mitchellh/packer/issues/2428
@@ -136,5 +136,5 @@ class TargetVirtualBox(TargetBase):
         self._packer_config.add_builder(packer_virtualbox_ovf)
 
 
-def _to_machine_name(val):
-    return val.replace('_', '-')
+def to_machine_name(name):
+    return name.replace('_', '-').replace('.', '-')
