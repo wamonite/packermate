@@ -10,6 +10,7 @@ from .file_utils import read_yaml_file, read_yaml_string
 import base64
 import tarfile
 from collections import namedtuple
+from fnmatch import fnmatch
 import logging
 
 
@@ -216,7 +217,7 @@ def get_tar_file_data(tar_type, tar_name, file_name):
     try:
         with tarfile.open(name = tar_name, mode = tar_mode) as tar_file:
             for tar_info in tar_file:
-                if file_name == tar_info.name:
+                if fnmatch(tar_info.name, file_name):
                     file_object = tar_file.extractfile(tar_info)
                     file_data = file_object.read()
                     return base64.b64encode(file_data)

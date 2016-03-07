@@ -244,6 +244,22 @@ def test_config_value_archive(config_binary_archive):
         check_file_content('data', result, file_data)
 
 
+def test_config_value_archive_glob(config_binary_archive):
+    config_binary_files, tar_file_name = config_binary_archive
+
+    for file_type, file_info in config_binary_files.iteritems():
+        file_name, file_data = file_info
+        file_name_short = '*' + file_name[-5:]
+
+        config_str = "---\nfile_val: (( file | tgz | {} | {} ))".format(tar_file_name, file_name_short)
+
+        config = Config(config_string = config_str)
+
+        result = config.file_val
+
+        check_file_content('data', result, file_data)
+
+
 # Config attributes and lookups
 
 def test_config_contains_defaults(config_no_env_vars):
