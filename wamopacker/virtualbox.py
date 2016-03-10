@@ -127,7 +127,7 @@ class TargetVirtualBox(TargetBase):
             TargetParameter('virtualbox_output_name', 'vm_name', func = to_machine_name),
             TargetParameter('ssh_user', 'ssh_username'),
             TargetParameter('ssh_password', 'ssh_password', required = False),
-            TargetParameter('ssh_key_file', 'ssh_key_path', required = False),  # https://github.com/mitchellh/packer/issues/2428
+            TargetParameter('ssh_key_file', 'ssh_private_key_file', required = False),  # https://github.com/mitchellh/packer/issues/2428
             TargetParameter('virtualbox_input_file', 'source_path'),
             TargetParameter('virtualbox_output_directory', 'output_directory'),
         )
