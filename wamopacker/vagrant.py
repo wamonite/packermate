@@ -492,7 +492,7 @@ def get_or_create_vagrant_box_metadata(config, box_metadata_file_name):
 def add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup):
     for provider_name, provider_file_name in target_file_lookup.iteritems():
         if 'vagrant_publish_copy_command' in config:
-            copy_published_file(config, provider_file_name)
+            copy_published_file(config, provider_file_name, provider_name)
 
         if config.vagrant_publish_url_prefix:
             box_url = '{}{}'.format(
@@ -509,12 +509,15 @@ def add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup):
         box_metadata.add_version(config.vm_version, provider_name, box_url, box_checksum, box_checksum_type)
 
 
-def copy_published_file(config, file_name):
+def copy_published_file(config, file_name, provider_name = None):
     tmp_path = config.FILE_PATH
     tmp_name = config.FILE_NAME
+    tmp_target = config.FILE_PROVIDER
 
     config.FILE_PATH = file_name
     config.FILE_NAME = os.path.basename(file_name)
+    config.FILE_PROVIDER = provider_name
+
     copy_cmd = config.vagrant_publish_copy_command
 
     log.info('Executing Vagrant publish copy command: {}'.format(copy_cmd))
@@ -522,3 +525,4 @@ def copy_published_file(config, file_name):
 
     config.FILE_PATH = tmp_path
     config.FILE_NAME = tmp_name
+    config.FILE_PROVIDER = tmp_target
