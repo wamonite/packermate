@@ -52,6 +52,9 @@ class ConfigValue(object):
         self._value_list = []
 
     def evaluate(self):
+        return self._evaluate().strip()
+
+    def _evaluate(self):
         if self._value:
             try:
                 self._parse(self._value)
@@ -64,13 +67,13 @@ class ConfigValue(object):
         out_list = []
         for value in self._value_list:
             if isinstance(value, ConfigValue):
-                out_list.append(value.evaluate())
+                out_list.append(value._evaluate())
 
             else:
                 out_list.append(value)
 
         bracket_value = ''.join(out_list)
-        return self._process(bracket_value) if self._dynamic else bracket_value.strip()
+        return self._process(bracket_value) if self._dynamic else bracket_value
 
     def _parse(self, value):
         lookup_start = value.find('((')
@@ -83,7 +86,7 @@ class ConfigValue(object):
             val_before = value[:lookup_start]
             val_after = value[lookup_start + 2:]
 
-            if val_before and not val_before.isspace():
+            if val_before:
                 self._value_list.append(val_before)
 
             if val_after:
@@ -91,7 +94,7 @@ class ConfigValue(object):
                 self._value_list.append(config_value)
 
                 val_left = config_value._parse(val_after)
-                if val_left and not val_left.isspace():
+                if val_left:
                     self._parse(val_left)
 
         elif lookup_end >= 0:
@@ -107,7 +110,7 @@ class ConfigValue(object):
             return val_after if val_after and not val_after.isspace() else ''
 
         else:
-            if value and not value.isspace():
+            if value:
                 self._value_list.append(value)
 
         return ''
