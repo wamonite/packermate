@@ -18,7 +18,7 @@ import logging
 REPACKAGED_VAGRANT_BOX_FILE_NAME = 'package.box'
 
 
-log = logging.getLogger('wamopacker.vagrant')
+log = logging.getLogger('packermate.vagrant')
 
 
 __all__ = [

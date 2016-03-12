@@ -4,14 +4,14 @@ with open('README.rst', 'r') as f:
     readme = f.read()
 
 setup(
-    name = 'wamopacker',
+    name = 'packermate',
     version = '0.6.0',
     description = 'Generate and run Packer build configurations from a simple YAML definition',
     long_description = readme,
     license = 'MIT',
     author = 'Warren Moore',
     author_email = 'warren@wamonite.com',
-    url = 'https://github.com/wamonite/wamopacker',
+    url = 'https://github.com/wamonite/packermate',
     classifiers = [
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
@@ -23,13 +23,13 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Topic :: Utilities'
     ],
-    packages = ['wamopacker'],
-    entry_points = dict(console_scripts = ['wamopacker=wamopacker.script:run']),
+    packages = ['packermate'],
+    entry_points = dict(console_scripts = ['packermate=packermate.script:run']),
     package_data = {
         '': [
             'LICENSE',
         ],
-        'wamopacker': [
+        'packermate': [
             'data/*.json',
             'data/templates/*.template'
         ]

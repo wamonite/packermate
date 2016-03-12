@@ -12,7 +12,7 @@ from .provisioner import parse_provisioners
 import logging
 
 
-log = logging.getLogger('wamopacker.command')
+log = logging.getLogger('packermate.command')
 
 
 __all__ = ['Builder', 'BuilderException']

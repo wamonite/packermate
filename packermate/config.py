@@ -20,10 +20,10 @@ CONFIG_DEFAULTS = {
     'packer_command': 'packer'
 }
 CONFIG_FILE_NAME_KEY = 'config_file_name'
-ENV_VAR_PREFIX = 'WAMOPACKER_'
+ENV_VAR_PREFIX = 'PACKERMATE_'
 
 
-log = logging.getLogger('wamopacker.config')
+log = logging.getLogger('packermate.config')
 
 
 __all__ = ['ConfigException', 'ConfigLoadException', 'ConfigValue', 'Config']

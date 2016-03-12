@@ -8,7 +8,7 @@ import re
 import logging
 
 
-log = logging.getLogger('wamopacker.aws')
+log = logging.getLogger('packermate.aws')
 
 
 __all__ = ['TargetAWS']
@@ -76,7 +76,7 @@ class TargetAWS(TargetBase):
             TargetParameter('aws_secret_key', 'secret_key', default = '(( env|AWS_SECRET_ACCESS_KEY ))'),
             TargetParameter('aws_region', 'region', default = '(( env|AWS_DEFAULT_REGION ))'),
             TargetParameter('aws_ami_id', 'source_ami'),
-            TargetParameter('aws_ami_name', 'ami_name', default = 'wamopacker {{ isotime \"2006-01-02 15-04\" }}'),
+            TargetParameter('aws_ami_name', 'ami_name', default = 'packermate {{ isotime \"2006-01-02 15-04\" }}'),
             TargetParameter('aws_ami_force_deregister', 'force_deregister', value_type = bool, default = False),
             TargetParameter('aws_instance_type', 'instance_type'),
             TargetParameter('ssh_user', 'ssh_username'),

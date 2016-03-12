@@ -3,9 +3,9 @@
 
 from __future__ import print_function, unicode_literals
 import pytest
-from wamopacker.provisioner import parse_provisioners, ProvisionerException
-from wamopacker.target import TargetParameterException
-from wamopacker.command import PackerConfig
+from packermate.provisioner import parse_provisioners, ProvisionerException
+from packermate.target import TargetParameterException
+from packermate.command import PackerConfig
 
 
 @pytest.mark.parametrize(

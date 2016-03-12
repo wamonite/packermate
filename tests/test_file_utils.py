@@ -3,7 +3,7 @@
 
 from __future__ import print_function, unicode_literals
 import pytest
-from wamopacker.file_utils import *
+from packermate.file_utils import *
 import uuid
 from string import Template
 

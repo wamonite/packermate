@@ -8,7 +8,7 @@ import os
 import logging
 
 
-log = logging.getLogger('wamopacker.virtualbox')
+log = logging.getLogger('packermate.virtualbox')
 
 
 __all__ = ['TargetVirtualBox', 'TargetVirtualBoxException']

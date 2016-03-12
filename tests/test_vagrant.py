@@ -3,7 +3,7 @@
 
 from __future__ import print_function, unicode_literals
 import pytest
-from wamopacker.vagrant import (
+from packermate.vagrant import (
     BoxMetadata,
     BoxMetadataException,
     parse_version,
@@ -16,7 +16,7 @@ import json
 import os
 from semantic_version import Version
 from mock import patch, Mock
-from wamopacker.process import ProcessException
+from packermate.process import ProcessException
 
 
 @pytest.fixture(
@@ -378,7 +378,7 @@ def mock_box_list(request):
             raise ValueError(run_command)
 
     mock_run_command = Mock(side_effect = run_command_side_effect)
-    patcher = patch('wamopacker.vagrant.run_command', mock_run_command)
+    patcher = patch('packermate.vagrant.run_command', mock_run_command)
     patcher.start()
 
     def stop_patcher():
@@ -469,7 +469,7 @@ def mock_box_add(request):
 
     local_inventory = LocalInventory()
     mock_run_command = Mock(side_effect = local_inventory.run_command_side_effect)
-    patcher = patch('wamopacker.vagrant.run_command', mock_run_command)
+    patcher = patch('packermate.vagrant.run_command', mock_run_command)
     patcher.start()
 
     def stop_patcher():

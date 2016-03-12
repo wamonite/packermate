@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, unicode_literals
-from wamopacker.script import configure_logging
-from wamopacker.config import Config
+from packermate.script import configure_logging
+from packermate.config import Config
 import pytest
 import os
 from tempfile import mkdtemp
@@ -13,7 +13,7 @@ import logging
 
 configure_logging()
 
-log = logging.getLogger('wamopacker.conftest')
+log = logging.getLogger('packermate.conftest')
 
 
 @pytest.fixture()
@@ -29,7 +29,7 @@ list1:
 
 @pytest.fixture()
 def temp_dir(request):
-    temp_dir_name = mkdtemp(prefix = 'wamopacker_pytest')
+    temp_dir_name = mkdtemp(prefix = 'packermate_pytest')
     log.info('created temp dir: {}'.format(temp_dir_name))
 
     current_dir = os.getcwd()

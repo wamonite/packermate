@@ -3,8 +3,8 @@
 
 from __future__ import print_function, unicode_literals
 import pytest
-from wamopacker.target import parse_parameters, TargetParameter, TargetParameterException
-from wamopacker.config import Config
+from packermate.target import parse_parameters, TargetParameter, TargetParameterException
+from packermate.config import Config
 
 
 @pytest.mark.parametrize(

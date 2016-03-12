@@ -3,7 +3,7 @@
 
 from __future__ import print_function, unicode_literals
 import pytest
-from wamopacker.process import run_command, ProcessException
+from packermate.process import run_command, ProcessException
 import os
 import uuid
 

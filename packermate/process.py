@@ -15,7 +15,7 @@ RUN_COMMAND_POLL_SECONDS = 1
 RUN_COMMAND_READ_BYTES = 1024
 
 
-log = logging.getLogger('wamopacker.process')
+log = logging.getLogger('packermate.process')
 
 
 __all__ = ['stream_subprocess', 'run_command', 'ProcessException']

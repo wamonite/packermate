@@ -1,14 +1,14 @@
-wamopacker
+packermate
 ==========
 
-.. image:: https://travis-ci.org/wamonite/wamopacker.svg?branch=master
-    :target: https://travis-ci.org/wamonite/wamopacker
+.. image:: https://travis-ci.org/wamonite/packermate.svg?branch=master
+    :target: https://travis-ci.org/wamonite/packermate
 
-.. image:: https://coveralls.io/repos/github/wamonite/wamopacker/badge.svg?branch=master
-    :target: https://coveralls.io/github/wamonite/wamopacker?branch=master
+.. image:: https://coveralls.io/repos/github/wamonite/packermate/badge.svg?branch=master
+    :target: https://coveralls.io/github/wamonite/packermate?branch=master
 
-.. image:: https://codeclimate.com/github/wamonite/wamopacker/badges/gpa.svg
-   :target: https://codeclimate.com/github/wamonite/wamopacker
+.. image:: https://codeclimate.com/github/wamonite/packermate/badges/gpa.svg
+   :target: https://codeclimate.com/github/wamonite/packermate
 
 Generate and run Packer_ build configurations from a simple YAML definition.
 

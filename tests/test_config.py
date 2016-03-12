@@ -3,7 +3,7 @@
 
 from __future__ import print_function, unicode_literals
 import pytest
-from wamopacker.config import (
+from packermate.config import (
     Config, ConfigValue,
     ConfigException, ConfigLoadException,
     CONFIG_DEFAULTS, ENV_VAR_PREFIX
@@ -16,7 +16,7 @@ import base64
 import tarfile
 
 
-log = logging.getLogger('wamopacker.test_config')
+log = logging.getLogger('packermate.test_config')
 
 TEST_VAR_NAME = 'TEST_ENV_VAR'
 TEST_VAR_KEY = ENV_VAR_PREFIX + TEST_VAR_NAME

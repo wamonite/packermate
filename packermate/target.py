@@ -5,7 +5,7 @@ from __future__ import print_function, unicode_literals
 import logging
 
 
-log = logging.getLogger('wamopacker.target')
+log = logging.getLogger('packermate.target')
 
 
 __all__ = ['TargetBase', 'TargetException', 'TargetParameter', 'TargetParameterException', 'parse_parameters']

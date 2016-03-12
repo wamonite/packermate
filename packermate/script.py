@@ -10,7 +10,7 @@ from collections import OrderedDict
 import logging
 
 
-DEFAULT_CONFIG_FILE_NAME = 'wamopacker.yml'
+DEFAULT_CONFIG_FILE_NAME = 'packermate.yml'
 COMMAND_LOOKUP = OrderedDict([
     ('virtualbox', ('build', 'virtualbox')),
     ('aws', ('build', 'aws')),
@@ -57,7 +57,7 @@ def parse_arguments():
 
 def run():
     configure_logging()
-    logger = logging.getLogger('wamopacker.script')
+    logger = logging.getLogger('packermate.script')
 
     try:
         args = parse_arguments()

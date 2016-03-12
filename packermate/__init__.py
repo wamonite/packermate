@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__title__ = 'wamopacker'
+__title__ = 'packermate'
 __version__ = '0.6.0'
 __author__ = 'Warren Moore'
 __license__ = 'MIT'
