@@ -86,6 +86,7 @@ def config_value_config(with_env_vars):
     config_str = """---
 foo: 123
 bar: '456'
+ref: foo
 empty: ''
 """
     return Config(config_string = config_str)
@@ -110,8 +111,10 @@ empty: ''
         ('(( foo ))', '123'),
         (' (( foo ))', '123'),
         ('(( foo )) ', '123'),
+        ('((((ref))))', '123'),
         ('(( foo ))(( bar ))', '123456'),
         ('(( foo )) (( bar ))', '123 456'),
+        ('(( foo ))  (( bar ))', '123  456'),
         ('test ((foo))', 'test 123'),
         (' test ((foo))', 'test 123'),
         ('test ((foo)) ', 'test 123'),
@@ -121,11 +124,23 @@ empty: ''
         (' ((foo)) test', '123 test'),
         ('((foo))  test', '123  test'),
         ('test ((foo)) ((bar))', 'test 123 456'),
-        ('(( default | foo | bar ))', 'foo'),
-        ('(( default || bar ))', 'bar'),
-        ('(( default | | bar ))', 'bar'),
-        ('(( default | (( foo )) | bar ))', '123'),
-        ('(( default | (( empty )) | bar ))', 'bar'),
+        ('test  ((foo))  ((bar))', 'test  123  456'),
+        ('(( default | foo ))', '123'),
+        ('(( default | foo | ))', '123'),
+        ('(( default | foo | bar ))', '123'),
+        ('(( default | foo | (( bar )) ))', '123'),
+        ('(( default | (( ref )) ))', '123'),
+        ('(( default | (( ref )) | ))', '123'),
+        ('(( default | (( ref )) | bar ))', '123'),
+        ('(( default | (( ref )) | (( bar )) ))', '123'),
+        ('(( default | empty ))', ''),
+        ('(( default | empty | ))', ''),
+        ('(( default | empty | bar ))', 'bar'),
+        ('(( default | empty | (( bar )) ))', '456'),
+        ('(( default | undefined ))', ''),
+        ('(( default | undefined | ))', ''),
+        ('(( default | undefined | bar ))', 'bar'),
+        ('(( default | undefined | (( bar )) ))', '456'),
         ('(( env | {} ))'.format(TEST_VAR_KEY), TEST_VAR_VALUE),
         ('(( lookup_optional | {} | foo ))'.format(MISSING_FILE_NAME), 'foo'),
         ('(( lookup_optional | {} | (( foo )) ))'.format(MISSING_FILE_NAME), '123'),
@@ -159,6 +174,10 @@ def test_config_value(config_value_config, config_val_str, expected):
         '(((( foo ))))',
         '(( | ))',
         '(( undefined | ))',
+        '(( default ))',
+        '(( default | ))',
+        '(( default | | ))',
+        '(( default | | 123 ))',
         '(( env | ))',
         '(( env | UNDEFINED_ENV_VAR ))',
         '(( uuid | ))',

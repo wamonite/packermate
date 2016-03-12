@@ -104,10 +104,10 @@ class ConfigValue(object):
             val_before = value[:lookup_end]
             val_after = value[lookup_end + 2:]
 
-            if val_before and not val_before.isspace():
+            if val_before:
                 self._value_list.append(val_before)
 
-            return val_after if val_after and not val_after.isspace() else ''
+            return val_after or ''
 
         else:
             if value:
@@ -126,7 +126,8 @@ class ConfigValue(object):
             self.ProcessFuncInfo(('uuid',), 2, self._config.get_uuid),
             self.ProcessFuncInfo(('base64_encode',), 2, base64.b64encode),
             self.ProcessFuncInfo(('base64_decode',), 2, base64.b64decode),
-            self.ProcessFuncInfo(('default',), 3, get_default_value),
+            self.ProcessFuncInfo(('default',), 2, self._process_default_value),
+            self.ProcessFuncInfo(('default',), 3, self._process_default_value),
             self.ProcessFuncInfo(('lookup',), 3, get_lookup_value),
             self.ProcessFuncInfo(('lookup_optional',), 3, get_lookup_optional_value),
             self.ProcessFuncInfo(('file', 'text'), 3, get_file_text),
@@ -161,6 +162,16 @@ class ConfigValue(object):
 
         return getattr(self._config, name)
 
+    def _process_default_value(self, value, default = ''):
+        if not value:
+            raise ConfigException('Default parameter not set')
+
+        try:
+            return self._process_name(value) or default
+
+        except ConfigException:
+            return default
+
 
 def get_env_var(name, default = None):
     if name in os.environ:
@@ -170,10 +181,6 @@ def get_env_var(name, default = None):
         raise ConfigException('Environment variable not found: {}'.format(name))
 
     return default
-
-
-def get_default_value(value, default):
-    return value or default
 
 
 def get_lookup_value(file_name, key_name, optional = False):
