@@ -48,19 +48,20 @@ class ConfigValue(object):
     def __init__(self, config, value = None):
         self._config = config
         self._value = value
+        self._line = value
         self._dynamic = value is None
         self._value_list = []
 
     def evaluate(self):
-        return self._evaluate().strip()
+        try:
+            return self._evaluate().strip()
+
+        except ConfigException as e:
+            raise ConfigException(e.message + "\n  line='{}'".format(self._line))
 
     def _evaluate(self):
         if self._value:
-            try:
-                self._parse(self._value)
-
-            except ConfigException as e:
-                raise ConfigException("Failed to parse: line='{}' reason='{}'".format(self._value, e))
+            self._parse(self._value)
 
             self._value = None
 

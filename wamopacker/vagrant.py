@@ -512,7 +512,7 @@ def add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup):
 def copy_published_file(config, file_name, provider_name = None):
     tmp_path = config.FILE_PATH
     tmp_name = config.FILE_NAME
-    tmp_target = config.FILE_PROVIDER
+    tmp_provider = config.FILE_PROVIDER
 
     config.FILE_PATH = file_name
     config.FILE_NAME = os.path.basename(file_name)
@@ -525,4 +525,4 @@ def copy_published_file(config, file_name, provider_name = None):
 
     config.FILE_PATH = tmp_path
     config.FILE_NAME = tmp_name
-    config.FILE_PROVIDER = tmp_target
+    config.FILE_PROVIDER = tmp_provider
