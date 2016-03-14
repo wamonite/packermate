@@ -422,6 +422,10 @@ class Config(object):
         if item in self._config:
             del(self._config[item])
 
+    def __iter__(self):
+        for item in self._config.keys():
+            yield item
+
     def _read_config(self, config_loader, initial_config = False):
         self._read_config_core(config_loader)
 

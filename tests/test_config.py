@@ -295,6 +295,15 @@ def test_config_reads_env_vars(config_no_env_vars, config_with_env_vars):
     assert TEST_VAR_NAME in config_with_env_vars
 
 
+def test_config_iter(config_with_env_vars):
+    values = set(CONFIG_DEFAULTS.keys())
+    values.add(TEST_VAR_NAME)
+    for val in config_with_env_vars:
+        values.remove(val)
+
+    assert not values
+
+
 @pytest.mark.parametrize(
     'override_list, key, val',
     (
