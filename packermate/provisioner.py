@@ -4,12 +4,13 @@
 from __future__ import print_function, unicode_literals
 from .target import TargetParameter, parse_parameters
 import json
+from .exception import PackermateException
 
 
 __all__ = ['parse_provisioners', 'ProvisionerException']
 
 
-class ProvisionerException(Exception):
+class ProvisionerException(PackermateException):
     pass
 
 

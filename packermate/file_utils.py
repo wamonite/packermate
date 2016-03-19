@@ -11,6 +11,7 @@ import yaml
 import yaml.scanner
 import hashlib
 from .process import run_command, ProcessException
+from .exception import PackermateException
 
 
 # https://stackoverflow.com/questions/2890146/how-to-force-pyyaml-to-load-strings-as-unicode-objects
@@ -68,7 +69,7 @@ class DataDir(object):
             return json.load(file_object)
 
 
-class UnarchiveException(Exception):
+class UnarchiveException(PackermateException):
     pass
 
 

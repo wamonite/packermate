@@ -9,6 +9,7 @@ from .vagrant import BoxMetadata, BoxInventory, parse_vagrant_export, publish_va
 from .virtualbox import TargetVirtualBox
 from .aws import TargetAWS
 from .provisioner import parse_provisioners
+from .exception import PackermateException
 import logging
 
 
@@ -51,7 +52,7 @@ class PackerConfig(object):
         return isinstance(other, PackerConfig) and self._config == other._config
 
 
-class BuilderException(Exception):
+class BuilderException(PackermateException):
     pass
 
 

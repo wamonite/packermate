@@ -12,6 +12,7 @@ from datetime import datetime
 from .process import run_command, ProcessException
 import re
 import os
+from .exception import PackermateException
 import logging
 
 
@@ -33,7 +34,7 @@ __all__ = [
 ]
 
 
-class BoxVersionException(Exception):
+class BoxVersionException(PackermateException):
     pass
 
 
@@ -90,7 +91,7 @@ def get_version_index(version_val, version_list):
     return insert_at, match_at
 
 
-class BoxMetadataException(Exception):
+class BoxMetadataException(PackermateException):
     pass
 
 
@@ -258,7 +259,7 @@ class BoxMetadata(object):
             raise BoxMetadataException("Failed to write metadata: file='{}' error='{}'".format(file_name, e))
 
 
-class BoxInventoryException(Exception):
+class BoxInventoryException(PackermateException):
     pass
 
 
@@ -422,7 +423,7 @@ def parse_vagrant_export(config, packer_config):
         packer_config.add_post_processor(vagrant_config)
 
 
-class PublishException(Exception):
+class PublishException(PackermateException):
     pass
 
 

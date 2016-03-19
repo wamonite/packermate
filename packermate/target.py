@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, unicode_literals
+from .exception import PackermateException
 import logging
 
 
@@ -11,7 +12,7 @@ log = logging.getLogger('packermate.target')
 __all__ = ['TargetBase', 'TargetException', 'TargetParameter', 'TargetParameterException', 'parse_parameters']
 
 
-class TargetException(Exception):
+class TargetException(PackermateException):
     pass
 
 
@@ -28,7 +29,7 @@ class TargetBase(object):
         raise NotImplementedError()
 
 
-class TargetParameterException(Exception):
+class TargetParameterException(PackermateException):
     pass
 
 

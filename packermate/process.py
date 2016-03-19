@@ -8,6 +8,7 @@ import os
 import sys
 import shlex
 from StringIO import StringIO
+from .exception import PackermateException
 import logging
 
 
@@ -21,7 +22,7 @@ log = logging.getLogger('packermate.process')
 __all__ = ['stream_subprocess', 'run_command', 'ProcessException']
 
 
-class ProcessException(Exception):
+class ProcessException(PackermateException):
     pass
 
 

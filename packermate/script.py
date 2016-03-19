@@ -7,6 +7,7 @@ import argparse
 from .config import Config
 from .command import Builder
 from collections import OrderedDict
+from .exception import PackermateException
 import logging
 
 
@@ -77,12 +78,10 @@ def run():
             if callable(command_func):
                 command_func()
 
-    except Exception as e:
+    except PackermateException as e:
         logger.error('{}: {}'.format(e.__class__.__name__, e))
         sys.exit(1)
 
-    except KeyboardInterrupt:
-        sys.exit(1)
 
 if __name__ == "__main__":
     run()

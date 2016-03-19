@@ -11,6 +11,7 @@ import base64
 import tarfile
 from collections import namedtuple
 from fnmatch import fnmatch
+from .exception import PackermateException
 import logging
 
 
@@ -30,7 +31,7 @@ log = logging.getLogger('packermate.config')
 __all__ = ['ConfigException', 'ConfigLoadException', 'ConfigValue', 'Config']
 
 
-class ConfigException(Exception):
+class ConfigException(PackermateException):
     pass
 
 
