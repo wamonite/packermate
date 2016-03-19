@@ -264,8 +264,9 @@ class BoxInventoryException(Exception):
 
 class BoxInventory(object):
 
-    def __init__(self):
+    def __init__(self, vagrant_command = 'vagrant'):
         self._box_lookup = None
+        self._vagrant_command = vagrant_command
 
     @property
     def list(self):
@@ -276,7 +277,7 @@ class BoxInventory(object):
     def _refresh(self):
         if self._box_lookup is None:
             try:
-                box_lines = run_command('vagrant box list', quiet = True)
+                box_lines = run_command('{} box list'.format(self._vagrant_command), quiet = True)
 
             except ProcessException as e:
                 raise BoxInventoryException("Failed to query installed Vagrant boxes: error='{}'".format(e))
@@ -321,7 +322,7 @@ class BoxInventory(object):
 
     def install(self, name, provider, version = None):
         if self.installed(name, provider, version) is None:
-            command = 'vagrant box add --provider {} {}'.format(provider, name)
+            command = '{} box add --provider {} {}'.format(self._vagrant_command, provider, name)
             if version:
                 command += ' --box-version {}'.format(version)
 
@@ -352,7 +353,7 @@ class BoxInventory(object):
 
     def export(self, temp_dir, name, provider, version = None):
         if self.installed(name, provider, version):
-            command = "vagrant box repackage {} {} {}".format(name, provider, version)
+            command = "{} box repackage {} {} {}".format(self._vagrant_command, name, provider, version)
 
             try:
                 run_command(command, working_dir = temp_dir)

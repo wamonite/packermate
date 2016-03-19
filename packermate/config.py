@@ -17,7 +17,8 @@ import logging
 CONFIG_DEFAULTS = {
     'shell_command': "{{ .Vars }} bash '{{ .Path }}'",
     'shell_command_sudo': "sudo -H -S {{ .Vars }} bash '{{ .Path }}'",
-    'packer_command': 'packer'
+    'packer_command': 'packer',
+    'vagrant_command': 'vagrant',
 }
 CONFIG_FILE_NAME_KEY = 'config_file_name'
 ENV_VAR_PREFIX = 'PACKERMATE_'

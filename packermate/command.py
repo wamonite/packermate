@@ -90,7 +90,7 @@ class Builder(object):
         with TempDir(self._config.temp_dir) as temp_dir_object:
             temp_dir = temp_dir_object.path
 
-            box_inventory = BoxInventory()
+            box_inventory = BoxInventory(vagrant_command = self._config.vagrant_command)
             for target_name in self._target_list:
                 target_class = self.TARGET_LOOKUP.get(target_name)
                 if not target_class:
