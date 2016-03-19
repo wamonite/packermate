@@ -117,6 +117,7 @@ class Builder(object):
                 publish_vagrant_box(
                     self._config,
                     self._target_list,
+                    box_inventory,
                 )
 
     @staticmethod

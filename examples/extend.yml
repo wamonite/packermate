@@ -25,3 +25,4 @@ vagrant: true
 vagrant_output: output/extend/(( vm_name ))_{{ .Provider }}.box
 vagrant_publish_url_prefix: file://(( env | PWD ))/output/
 vagrant_publish_copy_command: cp (( FILE_PATH )) (( env | PWD ))/output/(( FILE_NAME ))
+vagrant_uninstall_outdated_box: true

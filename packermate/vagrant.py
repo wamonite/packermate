@@ -330,7 +330,26 @@ class BoxInventory(object):
                 run_command(command)
 
             except ProcessException as e:
-                raise BoxInventoryException("Failed to install Vagrant box: name='{}' provider='{}' error='{}'".format(
+                raise BoxInventoryException("Failed to install Vagrant box: name={} provider={} error='{}'".format(
+                    name,
+                    provider,
+                    e
+                ))
+
+            finally:
+                self._reset()
+
+    def uninstall(self, name, provider, version = None):
+        if self.installed(name, provider, version):
+            command = '{} box remove --provider {} {}'.format(self._vagrant_command, provider, name)
+            if version:
+                command += ' --box-version {}'.format(version)
+
+            try:
+                run_command(command)
+
+            except ProcessException as e:
+                raise BoxInventoryException("Failed to remove Vagrant box: name={} provider={} error='{}'".format(
                     name,
                     provider,
                     e
@@ -359,7 +378,7 @@ class BoxInventory(object):
                 run_command(command, working_dir = temp_dir)
 
             except ProcessException as e:
-                raise BoxInventoryException("Failed to export Vagrant box: name='{}' provider='{}' error='{}'".format(
+                raise BoxInventoryException("Failed to export Vagrant box: name={} provider={} error='{}'".format(
                     name,
                     provider,
                     e
@@ -368,7 +387,7 @@ class BoxInventory(object):
             return os.path.join(temp_dir, REPACKAGED_VAGRANT_BOX_FILE_NAME)
 
         else:
-            raise BoxInventoryException("Vagrant box is not installed: name='{}' provider='{}'".format(name, provider))
+            raise BoxInventoryException("Vagrant box is not installed: name={} provider={}".format(name, provider))
 
     def export_from_config(self, config, provider, temp_dir):
         if 'vagrant_box_name' not in config:
@@ -407,7 +426,7 @@ class PublishException(Exception):
     pass
 
 
-def publish_vagrant_box(config, target_list):
+def publish_vagrant_box(config, target_list, box_inventory):
     if not config.vagrant_output:
         return
 
@@ -419,7 +438,7 @@ def publish_vagrant_box(config, target_list):
 
     box_metadata = get_or_create_vagrant_box_metadata(config, box_metadata_file_name)
 
-    add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup)
+    add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup, box_inventory)
 
     log.info('Writing updated Vagrant box metadata: {}'.format(box_metadata_file_name))
     box_metadata.write(box_metadata_file_name)
@@ -490,7 +509,7 @@ def get_or_create_vagrant_box_metadata(config, box_metadata_file_name):
     return box_metadata
 
 
-def add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup):
+def add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup, box_inventory):
     for provider_name, provider_file_name in target_file_lookup.iteritems():
         if 'vagrant_publish_copy_command' in config:
             copy_published_file(config, provider_file_name, provider_name)
@@ -508,6 +527,10 @@ def add_vagrant_files_to_box_metadata(config, box_metadata, target_file_lookup):
         box_checksum_type = 'md5'
 
         box_metadata.add_version(config.vm_version, provider_name, box_url, box_checksum, box_checksum_type)
+
+        if 'vagrant_uninstall_outdated_box' in config and config.vagrant_uninstall_outdated_box:
+            log.info('Uninstalling outdated Vagrant box: name={} provider={} version={}'.format(config.vm_name, provider_name, config.vm_version))
+            box_inventory.uninstall(config.vm_name, provider_name, config.vm_version)
 
 
 def copy_published_file(config, file_name, provider_name = None):
