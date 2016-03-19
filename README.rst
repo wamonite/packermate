@@ -18,11 +18,17 @@ Currently supported features:-
 - VirtualBox build from existing OVF file.
 - VirtualBox build from Vagrant box file.
 - VirtualBox build from installed Vagrant box.
+- VirtualBox build from Atlas Vagrant box name.
+- VirtualBox build from Vagrant box URL.
 - AWS AMI build from existing AMI.
 - AWS AMI from Vagrant box file.
 - AWS AMI from installed Vagrant box.
+- AWS AMI build from Atlas Vagrant box name.
+- AWS AMI build from Vagrant box URL.
 - File, shell and Ansible provisioners.
 - Export to Vagrant box file.
+- Export Vagrant box version metadata to file.
+- Specify command to run after Vagrant export.
 
 To Do
 -----
@@ -33,7 +39,7 @@ To Do
 License
 -------
 
-Copyright (c) 2015 Warren Moore
+Copyright (c) 2016 Warren Moore
 
 This software may be redistributed under the terms of the MIT License.
 See the file LICENSE for details.
