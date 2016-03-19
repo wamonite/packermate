@@ -5,3 +5,7 @@ build
 *.egg-info
 packer.json
 Vagrantfile
+dist
+examples/output
+.cache
+.idea
