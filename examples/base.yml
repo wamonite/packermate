@@ -1,18 +1,19 @@
 ---
 vm_name: base
+vm_version: 1.0.0
 include:
   - ssh_key_name.yml
-ssh_key_file: (( env|HOME ))/.ssh/(( ssh_key_name ))
-virtualbox_user: ubuntu
-virtualbox_password: ubuntu
+upload_ssh_key_file: (( env|HOME ))/.ssh/(( ssh_key_name ))
+ssh_user: ubuntu
+ssh_password: ubuntu
 virtualbox_iso_url: http://releases.ubuntu.com/trusty/ubuntu-14.04.3-server-amd64.iso
 virtualbox_iso_checksum: 9e5fecc94b3925bededed0fdca1bd417
-virtualbox_output_directory: base/virtualbox
-virtualbox_ovf_output: (( vm_name ))
-aws_user: ubuntu
+virtualbox_output_directory: output/base/virtualbox
+virtualbox_output_name: (( vm_name ))
 aws_region: eu-west-1
+aws_instance_type: t2.nano
 aws_ami_id: ami-8d16ccfe
-aws_instance_type: t2.micro
+aws_ami_force_deregister: true
 provisioners:
   - type: shell
     scripts:
@@ -25,10 +26,10 @@ provisioners:
       - scripts/passwordless_sudo.sh
       - scripts/lock_password.sh
     environment_vars:
-      - SETUP_USER_ACCOUNT=(( virtualbox_user ))
+      - SETUP_USER_ACCOUNT=(( ssh_user ))
     execute_command: (( shell_command_sudo ))
   - type: file
-    source: (( ssh_key_file )).pub
+    source: (( upload_ssh_key_file )).pub
     destination: /tmp/(( ssh_key_name )).pub
   - type: shell
     scripts:
@@ -36,5 +37,6 @@ provisioners:
     environment_vars:
       - SSH_PUBLIC_KEY_FILES=/tmp/(( ssh_key_name )).pub
 vagrant: true
-vagrant_output: base/(( vm_name ))_{{ .Provider }}.box
-vagrant_keep_inputs: true
+vagrant_output: output/base/(( vm_name ))_{{ .Provider }}.box
+vagrant_publish_url_prefix: file://(( env | PWD ))/output/
+vagrant_publish_copy_command: cp (( FILE_PATH )) (( env | PWD ))/output/(( FILE_NAME ))

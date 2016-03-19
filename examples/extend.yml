@@ -1,25 +1,27 @@
 ---
 vm_name: extend
+vm_version: 1.0.0
 include:
   - ssh_key_name.yml
-ssh_key_file: (( env|HOME ))/.ssh/(( ssh_key_name ))
-virtualbox_user: ubuntu
-virtualbox_private_key_file: (( ssh_key_file ))
-virtualbox_ovf_input_file: base/virtualbox/base.ovf
-virtualbox_output_directory: extend/virtualbox
-virtualbox_ovf_output: (( vm_name ))
-aws_vagrant_box_name: base
+ssh_user: ubuntu
+ssh_key_file: (( env | HOME ))/.ssh/(( ssh_key_name ))
+vagrant_box_name: base
+vagrant_box_url: (( env | PWD ))/output/base.json
+virtualbox_output_directory: output/extend/virtualbox
+virtualbox_output_name: (( vm_name ))
 aws_user: ubuntu
 # packer will not build for AWS without specifying a keypair name
 aws_keypair_name: dummy
 aws_private_key_file: (( ssh_key_file ))
 aws_region: eu-west-1
-aws_instance_type: t2.micro
+aws_instance_type: t2.nano
+aws_ami_force_deregister: true
 provisioners:
   - type: shell
     scripts:
       - scripts/apt-get_upgrade.sh
     execute_command: (( shell_command_sudo ))
 vagrant: true
-vagrant_output: extend/(( vm_name ))_{{ .Provider }}.box
-vagrant_keep_inputs: true
+vagrant_output: output/extend/(( vm_name ))_{{ .Provider }}.box
+vagrant_publish_url_prefix: file://(( env | PWD ))/output/
+vagrant_publish_copy_command: cp (( FILE_PATH )) (( env | PWD ))/output/(( FILE_NAME ))
