@@ -6,7 +6,7 @@ from copy import deepcopy
 import re
 import os
 import uuid
-from .file_utils import read_yaml_file, read_yaml_string
+from .file_utils import read_yaml_file, read_yaml_string, get_path_names
 import base64
 import tarfile
 from collections import namedtuple
@@ -47,9 +47,10 @@ class ConfigValue(object):
 
     ProcessFuncInfo = namedtuple('ProcessFuncInfo', ('key', 'argument_count', 'function'))
 
-    def __init__(self, config, value = None):
+    def __init__(self, config, value = None, path_list = None):
         self._config = config
         self._value = value
+        self._path_list = path_list or ['']
         self._line = value
         self._dynamic = value is None
         self._value_list = []
@@ -93,7 +94,7 @@ class ConfigValue(object):
                 self._value_list.append(val_before)
 
             if val_after:
-                config_value = ConfigValue(self._config)
+                config_value = ConfigValue(self._config, path_list = self._path_list)
                 self._value_list.append(config_value)
 
                 val_left = config_value._parse(val_after)
@@ -131,11 +132,11 @@ class ConfigValue(object):
             self.ProcessFuncInfo(('base64_decode',), 2, base64.b64decode),
             self.ProcessFuncInfo(('default',), 2, self._process_default_value),
             self.ProcessFuncInfo(('default',), 3, self._process_default_value),
-            self.ProcessFuncInfo(('lookup',), 3, get_lookup_value),
-            self.ProcessFuncInfo(('lookup_optional',), 3, get_lookup_optional_value),
-            self.ProcessFuncInfo(('file', 'text'), 3, get_file_text),
-            self.ProcessFuncInfo(('file', 'data'), 3, get_file_data),
-            self.ProcessFuncInfo(('file', 'tgz'), 4, get_tgz_file_data),
+            self.ProcessFuncInfo(('lookup',), 3, self._get_lookup_value),
+            self.ProcessFuncInfo(('lookup_optional',), 3, self._get_lookup_optional_value),
+            self.ProcessFuncInfo(('file', 'text'), 3, self._get_file_text),
+            self.ProcessFuncInfo(('file', 'data'), 3, self._get_file_data),
+            self.ProcessFuncInfo(('file', 'tgz'), 4, self._get_tgz_file_data),
         )
 
         process_func_found = None
@@ -175,6 +176,80 @@ class ConfigValue(object):
         except ConfigException:
             return default
 
+    def _get_lookup_value(self, file_name, key_name, optional = False):
+        lookup = None
+
+        for file_name_full in get_path_names(file_name, self._path_list):
+            lookup = read_yaml_file(file_name_full)
+
+            if lookup:
+                break
+
+        if lookup is None:
+            if optional:
+                return key_name
+
+            raise ConfigException('Unable to load lookup: {}'.format(file_name))
+
+        else:
+            if not isinstance(lookup, dict):
+                raise ConfigException('Lookup file should be a dictionary: {}'.format(file_name))
+
+            return lookup[key_name] if key_name in lookup else key_name
+
+    def _get_lookup_optional_value(self, file_name, key_name):
+        return self._get_lookup_value(file_name, key_name, optional = True)
+
+    def _get_file_data(self, file_name, encode = True):
+        data = None
+        for file_name_full in get_path_names(file_name, self._path_list):
+            try:
+                with open(file_name_full, 'rb') as file_object:
+                    file_data = file_object.read()
+                    data = base64.b64encode(file_data) if encode else file_data
+
+                    break
+
+            except IOError:
+                pass
+
+        if data is None:
+            raise ConfigException("Unable to load file: '{}'".format(file_name))
+
+        return data
+
+    def _get_file_text(self, file_name):
+        return self._get_file_data(file_name, encode = False)
+
+    def _get_tar_file_data(self, tar_type, tar_name, file_name):
+        tar_type_lookup = {
+            'tgz': 'r:gz'
+        }
+        tar_mode = tar_type_lookup.get(tar_type)
+        if tar_mode is None:
+            raise ConfigException("Unknown tar type: name='{}' type='{}'".format(tar_name, tar_type))
+
+        data = None
+        for tar_name_full in get_path_names(tar_name, self._path_list):
+            try:
+                with tarfile.open(name = tar_name_full, mode = tar_mode) as tar_file:
+                    for tar_info in tar_file:
+                        if fnmatch(tar_info.name, file_name):
+                            file_object = tar_file.extractfile(tar_info)
+                            file_data = file_object.read()
+                            return base64.b64encode(file_data)
+
+            except IOError:
+                pass
+
+        if data is None:
+            raise ConfigException("Unable to find file: tar='{}' file='{}'".format(tar_name, file_name))
+
+        return data
+
+    def _get_tgz_file_data(self, tar_name, file_name):
+        return self._get_tar_file_data('tgz', tar_name, file_name)
+
 
 def get_env_var(name, default = None):
     if name in os.environ:
@@ -186,76 +261,32 @@ def get_env_var(name, default = None):
     return default
 
 
-def get_lookup_value(file_name, key_name, optional = False):
-    lookup = read_yaml_file(file_name)
-    if lookup is None:
-        if optional:
-            return key_name
-
-        raise ConfigException('Unable to load lookup: {}'.format(file_name))
-
-    else:
-        if not isinstance(lookup, dict):
-            raise ConfigException('Lookup file should be a dictionary: {}'.format(file_name))
-
-        return lookup[key_name] if key_name in lookup else key_name
-
-
-def get_lookup_optional_value(file_name, key_name):
-    return get_lookup_value(file_name, key_name, optional = True)
-
-
-def get_file_data(file_name, encode = True):
-    try:
-        with open(file_name, 'rb') as file_object:
-            file_data = file_object.read()
-            return base64.b64encode(file_data) if encode else file_data
-
-    except IOError as e:
-        raise ConfigException("Unable to load file: name='{}' error='{}'".format(file_name, e))
-
-
-def get_file_text(file_name):
-    return get_file_data(file_name, encode = False)
-
-
-def get_tar_file_data(tar_type, tar_name, file_name):
-    tar_type_lookup = {
-        'tgz': 'r:gz'
-    }
-    tar_mode = tar_type_lookup.get(tar_type)
-    if tar_mode is None:
-        raise ConfigException("Unknown tar type: name='{}' type='{}'".format(tar_name, tar_type))
-
-    try:
-        with tarfile.open(name = tar_name, mode = tar_mode) as tar_file:
-            for tar_info in tar_file:
-                if fnmatch(tar_info.name, file_name):
-                    file_object = tar_file.extractfile(tar_info)
-                    file_data = file_object.read()
-                    return base64.b64encode(file_data)
-
-    except IOError as e:
-        raise ConfigException("Unable to load tar file: tar='{}' error='{}'".format(tar_name, e))
-
-    raise ConfigException("Unable to find file: tar='{}' file='{}'".format(tar_name, file_name))
-
-
-def get_tgz_file_data(tar_name, file_name):
-    return get_tar_file_data('tgz', tar_name, file_name)
-
-
 class ConfigFileLoader(object):
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, path_list = None):
         self._file_name = file_name
+        self._path_list = path_list if path_list else ['']
+        self._loaded_file_name = None
 
     @property
     def name(self):
-        return self._file_name
+        return self._loaded_file_name or self._file_name
+
+    @property
+    def path_list(self):
+        return self._path_list
 
     def get_data(self):
-        config_data = read_yaml_file(self._file_name)
+        config_data = None
+
+        for path in self._path_list:
+            file_name = os.path.join(path, self._file_name)
+            config_data = read_yaml_file(file_name)
+
+            if config_data:
+                self._loaded_file_name = file_name
+                break
+
         if config_data is None:
             raise ConfigLoadException("Unable to load config: '{}'".format(self.name))
 
@@ -267,12 +298,17 @@ class ConfigFileLoader(object):
 
 class ConfigStringLoader(object):
 
-    def __init__(self, config_string):
+    def __init__(self, config_string, path_list = None):
         self._config_string = config_string
+        self._path_list = path_list if path_list else ['']
 
     @property
     def name(self):
         return '<string>'
+
+    @property
+    def path_list(self):
+        return self._path_list
 
     def get_data(self):
         config_data = read_yaml_string(self._config_string)
@@ -352,18 +388,20 @@ class ConfigDumper(object):
 
 class Config(object):
 
-    def __init__(self, config_file_name = None, config_string = None, override_list = None):
+    def __init__(self, config_file_name = None, config_string = None, override_list = None, path_list = None):
+        self._path_list = path_list
+
         self._config = deepcopy(CONFIG_DEFAULTS)
         self._re = re.compile('^(.*)\(\(\s*([^\)\s]+)\s*\)\)(.*)$')
         self._uuid_cache = {}
 
         if config_file_name is not None:
-            config_loader = ConfigFileLoader(config_file_name)
+            config_loader = ConfigFileLoader(config_file_name, path_list = path_list)
             self._config[CONFIG_FILE_NAME_KEY] = config_file_name
             self._read_config(config_loader, initial_config = True)
 
         if config_string is not None:
-            config_loader = ConfigStringLoader(config_string)
+            config_loader = ConfigStringLoader(config_string, path_list = path_list)
             self._read_config(config_loader, initial_config = True)
 
         if isinstance(override_list, list):
@@ -376,7 +414,7 @@ class Config(object):
 
     def expand_parameters(self, value):
         if isinstance(value, basestring):
-            config_value = ConfigValue(self, value)
+            config_value = ConfigValue(self, value = value, path_list = self._path_list)
             return config_value.evaluate()
 
         elif isinstance(value, list):
@@ -406,7 +444,7 @@ class Config(object):
             return self.expand_parameters(self._config[item])
 
     def __setattr__(self, item, value):
-        if item in ('_config', '_re', '_uuid_cache'):
+        if item in ('_path_list', '_config', '_re', '_uuid_cache'):
             super(Config, self).__setattr__(item, value)
 
         else:
@@ -456,10 +494,10 @@ class Config(object):
 
             for include_file_name in config_data['include']:
                 include_file_name_full = self.expand_parameters(include_file_name)
-                include_config_loader = ConfigFileLoader(include_file_name_full)
+                include_config_loader = ConfigFileLoader(include_file_name_full, path_list = config_loader.path_list)
                 self._read_config(include_config_loader)
 
-                log.info("Included config: '{}'".format(include_file_name_full))
+                log.info("Included config: '{}' from '{}'".format(include_config_loader.name, config_loader.name))
 
         if 'include_optional' in config_data:
             if not isinstance(config_data['include_optional'], list):
@@ -468,7 +506,7 @@ class Config(object):
             for include_file_name in config_data['include_optional']:
                 include_file_name_full = self.expand_parameters(include_file_name)
                 try:
-                    include_config_loader = ConfigFileLoader(include_file_name_full)
+                    include_config_loader = ConfigFileLoader(include_file_name_full, path_list = config_loader.path_list)
                     self._read_config(include_config_loader)
 
                 except ConfigLoadFormatException:
@@ -478,7 +516,7 @@ class Config(object):
                     log.info("Skipped optional config: '{}'".format(include_file_name_full))
 
                 else:
-                    log.info("Included optional config: '{}'".format(include_file_name_full))
+                    log.info("Included optional config: '{}' from '{}'".format(include_config_loader.name, config_loader.name))
 
     @staticmethod
     def _parse_overrides(override_list):

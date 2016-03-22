@@ -120,3 +120,10 @@ def read_yaml_string(data):
 def write_json_file(data, file_name):
     with open(file_name, 'w') as file_object:
         json.dump(data, file_object, indent = 4, sort_keys = True)
+
+
+def get_path_names(file_name, path_list):
+    if file_name and file_name[0] == os.path.sep:
+        return [file_name]
+
+    return [os.path.join(path, file_name) for path in path_list]
