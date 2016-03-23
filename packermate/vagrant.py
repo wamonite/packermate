@@ -342,7 +342,7 @@ class BoxInventory(object):
 
     def uninstall(self, name, provider, version = None):
         if self.installed(name, provider, version):
-            command = '{} box remove --provider {} {}'.format(self._vagrant_command, provider, name)
+            command = '{} box remove --force --provider {} {}'.format(self._vagrant_command, provider, name)
             if version:
                 command += ' --box-version {}'.format(version)
 
