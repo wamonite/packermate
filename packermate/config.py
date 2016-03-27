@@ -269,8 +269,12 @@ class ConfigFileLoader(object):
         self._loaded_file_list = []
 
     @property
-    def name(self):
-        return ', '.join(self._loaded_file_list) if self._loaded_file_list else self._file_name
+    def name_list(self):
+        return self._loaded_file_list or [self._file_name]
+
+    @property
+    def names(self):
+        return ', '.join(["'{}'".format(name) for name in self.name_list])
 
     @property
     def path_list(self):
@@ -279,17 +283,17 @@ class ConfigFileLoader(object):
     def get_data(self):
         config_data_list = []
 
+        self._loaded_file_list = []
         for path in reversed(self._path_list):
             file_name = os.path.join(path, self._file_name)
             config_data = read_yaml_file(file_name)
 
             if config_data:
                 if not isinstance(config_data, dict):
-                    raise ConfigLoadFormatException("Config file should contain a valid YAML dictionary: '{}'".format(self.name))
+                    raise ConfigLoadFormatException("Config file should contain a valid YAML dictionary: '{}'".format(file_name))
 
                 config_data_list.append(config_data)
-                if file_name not in self._loaded_file_list:
-                    self._loaded_file_list.append(file_name)
+                self._loaded_file_list.append(file_name)
 
         if not config_data_list:
             raise ConfigLoadException("Unable to load config: '{}'".format(self._file_name))
@@ -299,13 +303,19 @@ class ConfigFileLoader(object):
 
 class ConfigStringLoader(object):
 
+    CONFIG_NAME = '<string>'
+
     def __init__(self, config_string, path_list = None):
         self._config_string = config_string
         self._path_list = path_list if path_list else ['']
 
     @property
-    def name(self):
-        return '<string>'
+    def name_list(self):
+        return [self.CONFIG_NAME]
+
+    @property
+    def names(self):
+        return self.CONFIG_NAME
 
     @property
     def path_list(self):
@@ -314,10 +324,10 @@ class ConfigStringLoader(object):
     def get_data(self):
         config_data = read_yaml_string(self._config_string)
         if config_data is None:
-            raise ConfigLoadException("Unable to load config: '{}'".format(self.name))
+            raise ConfigLoadException("Unable to load config: {}".format(self.CONFIG_NAME))
 
         if not isinstance(config_data, dict):
-            raise ConfigLoadFormatException("Config file should contain a valid YAML dictionary: '{}'".format(self.name))
+            raise ConfigLoadFormatException("Config file should contain a valid YAML dictionary: {}".format(self.CONFIG_NAME))
 
         return [config_data]
 
@@ -471,7 +481,7 @@ class Config(object):
         self._read_config_core(config_loader)
 
         if initial_config:
-            log.info("Loaded config: '{}'".format(config_loader.name))
+            log.info("Loaded config: {}".format(config_loader.names))
 
         self._read_config_includes(config_loader)
 
@@ -493,18 +503,18 @@ class Config(object):
         for config_data in config_data_list:
             if 'include' in config_data:
                 if not isinstance(config_data['include'], list):
-                    raise ConfigLoadFormatException("Config file includes should contain a valid YAML list: '{}'".format(config_loader.name))
+                    raise ConfigLoadFormatException("Config file includes should contain a valid YAML list: {}".format(config_loader.names))
 
                 for include_file_name in config_data['include']:
                     include_file_name_full = self.expand_parameters(include_file_name)
                     include_config_loader = ConfigFileLoader(include_file_name_full, path_list = config_loader.path_list)
                     self._read_config(include_config_loader)
 
-                    log.info("Included config: '{}' into '{}'".format(include_config_loader.name, config_loader.name))
+                    log.info("Included config: {} into {}".format(include_config_loader.names, config_loader.names))
 
             if 'include_optional' in config_data:
                 if not isinstance(config_data['include_optional'], list):
-                    raise ConfigLoadFormatException("Config file optional includes should contain a valid YAML list: '{}'".format(config_loader.name))
+                    raise ConfigLoadFormatException("Config file optional includes should contain a valid YAML list: {}".format(config_loader.names))
 
                 for include_file_name in config_data['include_optional']:
                     include_file_name_full = self.expand_parameters(include_file_name)
@@ -519,7 +529,7 @@ class Config(object):
                         log.debug("Skipped optional config: '{}'".format(include_file_name_full))
 
                     else:
-                        log.info("Included optional config: '{}' into '{}'".format(include_config_loader.name, config_loader.name))
+                        log.info("Included optional config: {} into {}".format(include_config_loader.names, config_loader.names))
 
     @staticmethod
     def _parse_overrides(override_list):
