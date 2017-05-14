@@ -60,6 +60,16 @@ class TargetVirtualBox(TargetBase):
             TargetParameter('virtualbox_output_directory', 'output_directory'),
             TargetParameter('virtualbox_output_format', 'format', required = False),
             TargetParameter('virtualbox_packer_http_dir', 'http_directory', default = 'packer_http'),
+            TargetParameter('virtualbox_headless', 'headless', value_type = bool, default = True),
+            TargetParameter('virtualbox_boot_command', 'boot_command', value_type = list, default = [
+                "<esc><esc><enter><wait>",
+                "/install/vmlinuz noapic preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg <wait>",
+                "debian-installer=en_GB auto locale=en_GB kbd-chooser/method=gb <wait>",
+                "hostname={{ .Name }} <wait>",
+                "fb=false debconf/frontend=noninteractive <wait>",
+                "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=GB keyboard-configuration/variant=GB console-setup/ask_detect=false <wait>",
+                "initrd=/install/initrd.gz -- <enter><wait>"
+            ])
         )
         parse_parameters(param_list, self._config, iso_build_config)
 
@@ -130,6 +140,7 @@ class TargetVirtualBox(TargetBase):
             TargetParameter('ssh_key_file', 'ssh_private_key_file', required = False),  # https://github.com/mitchellh/packer/issues/2428
             TargetParameter('virtualbox_input_file', 'source_path'),
             TargetParameter('virtualbox_output_directory', 'output_directory'),
+            TargetParameter('virtualbox_headless', 'headless', value_type = bool, default = True),
         )
         parse_parameters(param_list, self._config, packer_virtualbox_ovf)
 

@@ -204,8 +204,8 @@ def test_box_metadata_version(version_str, expected):
     (
         ('http://does.not.exist', False),
         ('https://github.com/does/not/exist', False),
-        ('http://gist.githubusercontent.com/wamonite/e466b76b7c1eb5a38be6/raw/662b52365715722a3d5e7bb4afa948412b9101b7/metadata.json', True),
-        ('https://gist.githubusercontent.com/wamonite/e466b76b7c1eb5a38be6/raw/662b52365715722a3d5e7bb4afa948412b9101b7/metadata.json', True),
+        ('http://gist.githubusercontent.com/wamonite/de438947d79fb70c55d0041acd22bf94/raw/332a9ded6aad081ee00b930022ce1b5de30f84fa/metadata.json', True),
+        ('https://gist.githubusercontent.com/wamonite/de438947d79fb70c55d0041acd22bf94/raw/332a9ded6aad081ee00b930022ce1b5de30f84fa/metadata.json', True),
     )
 )
 def test_box_metadata_download_url(url, expected):

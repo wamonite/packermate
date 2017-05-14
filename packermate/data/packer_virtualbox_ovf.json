@@ -1,6 +1,5 @@
 {
   "type": "virtualbox-ovf",
-  "headless": true,
   "vboxmanage": [
     ["modifyvm", "{{ .Name }}", "--nictype1", "virtio"]
   ],
