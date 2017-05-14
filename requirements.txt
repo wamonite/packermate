@@ -1,6 +1,6 @@
-pytest-runner==2.11
+pytest-runner==2.11.1
 pyaml==16.12.2
-pytest-runner==2.8
+pytest-runner==2.11.1
 pytest==3.0.7
 pytest-cov==2.5.1
 semantic_version==2.6.0
