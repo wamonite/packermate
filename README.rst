@@ -20,7 +20,7 @@ Generate and run Packer_ build configurations from a simple YAML definition.
 
 Currently supported features:-
 
-- Ubuntu on VirualBox preseed build from installation ISO image.
+- Ubuntu on VirtualBox preseed build from installation ISO image.
 - VirtualBox build from existing OVF file.
 - VirtualBox build from Vagrant box file.
 - VirtualBox build from installed Vagrant box.
