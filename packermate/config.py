@@ -17,10 +17,10 @@ import logging
 try:
     import boto3
     from botocore.exceptions import BotoCoreError
-    BOTO3_AVAIABLE = True
+    BOTO3_AVAILABLE = True
 
 except ImportError:
-    BOTO3_AVAIABLE = False
+    BOTO3_AVAILABLE = False
 
 
 CONFIG_DEFAULTS = {
@@ -145,7 +145,7 @@ class ConfigValue(object):
 
         process_func_list = []
 
-        if BOTO3_AVAIABLE:
+        if BOTO3_AVAILABLE:
             process_func_list += [
                 self.ProcessFuncInfo(('aws_account',), 1, self._get_aws_account),
                 self.ProcessFuncInfo(('aws_account',), 2, self._get_aws_account),
