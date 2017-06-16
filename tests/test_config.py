@@ -146,6 +146,7 @@ empty: ''
         ('(( lookup_optional | {} | (( foo )) ))'.format(MISSING_FILE_NAME), '123'),
         ('(( base64_encode | 123 ))', 'MTIz'),
         ('(( base64_decode | (( base64_encode | 123 )) ))', '123'),
+        ('(( aws_account ))', 'aws'),
     ),
 )
 def test_config_value(config_value_config, config_val_str, expected):

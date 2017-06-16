@@ -39,5 +39,10 @@ setup(
         'semantic_version==2.6.0',
         'requests==2.18.1',
     ],
+    extras_require = {
+        'AWS':  [
+            "boto3==1.4.4"
+        ]
+    },
     zip_safe = False
 )

@@ -14,6 +14,13 @@ from fnmatch import fnmatch
 from .exception import PackermateException
 import logging
 
+try:
+    import boto3
+    BOTO3_AVAIABLE = True
+
+except ImportError:
+    BOTO3_AVAIABLE = False
+
 
 CONFIG_DEFAULTS = {
     'shell_command': "{{ .Vars }} bash '{{ .Path }}'",
@@ -123,7 +130,14 @@ class ConfigValue(object):
         value_list = map(lambda val_str: val_str.strip(), value.split('|'))
         value_list_len = len(value_list)
 
-        process_func_list = (
+        process_func_list = []
+
+        if BOTO3_AVAIABLE:
+            process_func_list += [
+                self.ProcessFuncInfo(('aws_account',), 1, self._get_aws_account)
+            ]
+
+        process_func_list += [
             self.ProcessFuncInfo((), 1, self._process_name),
             self.ProcessFuncInfo(('env',), 2, get_env_var),
             self.ProcessFuncInfo(('env',), 3, get_env_var),
@@ -137,7 +151,7 @@ class ConfigValue(object):
             self.ProcessFuncInfo(('file', 'text'), 3, self._get_file_text),
             self.ProcessFuncInfo(('file', 'data'), 3, self._get_file_data),
             self.ProcessFuncInfo(('file', 'tgz'), 4, self._get_tgz_file_data),
-        )
+        ]
 
         process_func_found = None
         for process_func_info in process_func_list:
@@ -249,6 +263,9 @@ class ConfigValue(object):
 
     def _get_tgz_file_data(self, tar_name, file_name):
         return self._get_tar_file_data('tgz', tar_name, file_name)
+
+    def _get_aws_account(self):
+        return 'aws'
 
 
 def get_env_var(name, default = None):
