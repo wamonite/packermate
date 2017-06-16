@@ -14,6 +14,7 @@ import yaml
 import struct
 import base64
 import tarfile
+import boto3
 
 
 log = logging.getLogger('packermate.test_config')
@@ -152,6 +153,34 @@ empty: ''
     ),
 )
 def test_config_value(config_value_config, config_val_str, expected):
+    config_value = ConfigValue(config_value_config, config_val_str)
+    assert config_value.evaluate() == expected
+
+
+@pytest.mark.parametrize(
+    'config_val_str, expected',
+    (
+        ('(( aws_account ))', 'ACCOUNT'),
+        ('(( aws_user ))', 'USER'),
+        ('(( aws_arn ))', 'ARN'),
+    ),
+)
+def test_config_value_aws(config_value_config, config_val_str, expected, monkeypatch):
+    class MockClient(object):
+
+        @staticmethod
+        def get_caller_identity():
+            return {
+                'UserId': 'USER',
+                'Account': 'ACCOUNT',
+                'Arn': 'ARN',
+            }
+
+    def mock_get_client(val):
+        return MockClient()
+
+    monkeypatch.setattr(boto3, 'client', mock_get_client)
+
     config_value = ConfigValue(config_value_config, config_val_str)
     assert config_value.evaluate() == expected
 
