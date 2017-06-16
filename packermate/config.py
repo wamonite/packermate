@@ -14,6 +14,14 @@ from fnmatch import fnmatch
 from .exception import PackermateException
 import logging
 
+try:
+    import boto3
+    from botocore.exceptions import BotoCoreError
+    BOTO3_AVAILABLE = True
+
+except ImportError:
+    BOTO3_AVAILABLE = False
+
 
 CONFIG_DEFAULTS = {
     'shell_command': "{{ .Vars }} bash '{{ .Path }}'",
@@ -41,6 +49,18 @@ class ConfigLoadException(ConfigException):
 
 class ConfigLoadFormatException(ConfigLoadException):
     pass
+
+
+def get_aws_caller_identity(key, default = None):
+    try:
+        sts_client = boto3.client('sts')
+        return sts_client.get_caller_identity()[key]
+
+    except BotoCoreError as e:
+        if default is not None:
+            return default
+
+        raise ConfigException('AWS error ({}) {}'.format(e.__class__.__name__, e))
 
 
 class ConfigValue(object):
@@ -123,7 +143,19 @@ class ConfigValue(object):
         value_list = map(lambda val_str: val_str.strip(), value.split('|'))
         value_list_len = len(value_list)
 
-        process_func_list = (
+        process_func_list = []
+
+        if BOTO3_AVAILABLE:
+            process_func_list += [
+                self.ProcessFuncInfo(('aws_account',), 1, self._get_aws_account),
+                self.ProcessFuncInfo(('aws_account',), 2, self._get_aws_account),
+                self.ProcessFuncInfo(('aws_user',), 1, self._get_aws_user),
+                self.ProcessFuncInfo(('aws_user',), 2, self._get_aws_user),
+                self.ProcessFuncInfo(('aws_arn',), 1, self._get_aws_arn),
+                self.ProcessFuncInfo(('aws_arn',), 2, self._get_aws_arn),
+            ]
+
+        process_func_list += [
             self.ProcessFuncInfo((), 1, self._process_name),
             self.ProcessFuncInfo(('env',), 2, get_env_var),
             self.ProcessFuncInfo(('env',), 3, get_env_var),
@@ -137,7 +169,7 @@ class ConfigValue(object):
             self.ProcessFuncInfo(('file', 'text'), 3, self._get_file_text),
             self.ProcessFuncInfo(('file', 'data'), 3, self._get_file_data),
             self.ProcessFuncInfo(('file', 'tgz'), 4, self._get_tgz_file_data),
-        )
+        ]
 
         process_func_found = None
         for process_func_info in process_func_list:
@@ -249,6 +281,18 @@ class ConfigValue(object):
 
     def _get_tgz_file_data(self, tar_name, file_name):
         return self._get_tar_file_data('tgz', tar_name, file_name)
+
+    @staticmethod
+    def _get_aws_account(default = None):
+        return get_aws_caller_identity('Account', default)
+
+    @staticmethod
+    def _get_aws_user(default = None):
+        return get_aws_caller_identity('UserId', default)
+
+    @staticmethod
+    def _get_aws_arn(default = None):
+        return get_aws_caller_identity('Arn', default)
 
 
 def get_env_var(name, default = None):
