@@ -10,3 +10,6 @@ examples/output
 .cache
 .idea
 .eggs
+__pycache__
+.tox
+.coverage

@@ -1,11 +1,17 @@
 packermate
 ==========
 
+.. image:: https://img.shields.io/pypi/v/packermate.svg
+    :target: https://pypi.python.org/pypi/packermate
+
 .. image:: https://travis-ci.org/wamonite/packermate.svg?branch=master
     :target: https://travis-ci.org/wamonite/packermate
 
-.. image:: https://coveralls.io/repos/github/wamonite/packermate/badge.svg?branch=master
-    :target: https://coveralls.io/github/wamonite/packermate?branch=master
+.. image:: https://codecov.io/gh/wamonite/packermate/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/wamonite/packermate
+
+.. image:: https://requires.io/github/wamonite/packermate/requirements.svg?branch=master
+    :target: https://requires.io/github/wamonite/packermate/requirements/?branch=master
 
 .. image:: https://codeclimate.com/github/wamonite/packermate/badges/gpa.svg
    :target: https://codeclimate.com/github/wamonite/packermate

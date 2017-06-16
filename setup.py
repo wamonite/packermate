@@ -35,15 +35,9 @@ setup(
         ]
     },
     install_requires = [
-        'pyaml',
-        'semantic_version',
-        'requests',
-    ],
-    setup_requires = [
-        'pytest-runner',
-    ],
-    tests_require = [
-        'pytest-cov'
+        'pyaml==16.12.2',
+        'semantic_version==2.6.0',
+        'requests==2.18.1',
     ],
     zip_safe = False
 )
