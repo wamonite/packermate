@@ -16,6 +16,7 @@ import logging
 
 try:
     import boto3
+    from botocore.exceptions import BotoCoreError
     BOTO3_AVAIABLE = True
 
 except ImportError:
@@ -48,6 +49,15 @@ class ConfigLoadException(ConfigException):
 
 class ConfigLoadFormatException(ConfigLoadException):
     pass
+
+
+def get_aws_caller_identity():
+    try:
+        sts_client = boto3.client('sts')
+        return sts_client.get_caller_identity()
+
+    except BotoCoreError as e:
+        raise ConfigException('AWS error ({}) {}'.format(e.__class__.__name__, e))
 
 
 class ConfigValue(object):
@@ -134,7 +144,9 @@ class ConfigValue(object):
 
         if BOTO3_AVAIABLE:
             process_func_list += [
-                self.ProcessFuncInfo(('aws_account',), 1, self._get_aws_account)
+                self.ProcessFuncInfo(('aws_account',), 1, self._get_aws_account),
+                self.ProcessFuncInfo(('aws_user',), 1, self._get_aws_user),
+                self.ProcessFuncInfo(('aws_arn',), 1, self._get_aws_arn)
             ]
 
         process_func_list += [
@@ -264,8 +276,17 @@ class ConfigValue(object):
     def _get_tgz_file_data(self, tar_name, file_name):
         return self._get_tar_file_data('tgz', tar_name, file_name)
 
-    def _get_aws_account(self):
-        return 'aws'
+    @staticmethod
+    def _get_aws_account():
+        return get_aws_caller_identity()['Account']
+
+    @staticmethod
+    def _get_aws_user():
+        return get_aws_caller_identity()['UserId']
+
+    @staticmethod
+    def _get_aws_arn():
+        return get_aws_caller_identity()['Arn']
 
 
 def get_env_var(name, default = None):
