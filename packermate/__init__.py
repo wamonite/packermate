@@ -8,7 +8,7 @@ from .process import run_command, ProcessException
 from .exception import PackermateException
 
 __title__ = 'packermate'
-__version__ = '0.10.0'
+__version__ = '0.11.0'
 __author__ = 'Warren Moore'
 __license__ = 'MIT'
 __copyright__ = 'Copyright (c) 2016 Warren Moore'
