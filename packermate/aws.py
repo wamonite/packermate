@@ -74,6 +74,7 @@ class TargetAWS(TargetBase):
         config_key_list = (
             TargetParameter('aws_access_key', 'access_key', default = '(( env|AWS_ACCESS_KEY_ID ))'),
             TargetParameter('aws_secret_key', 'secret_key', default = '(( env|AWS_SECRET_ACCESS_KEY ))'),
+            TargetParameter('aws_session_token', 'token', default = '(( env|AWS_SESSION_TOKEN ))'),
             TargetParameter('aws_region', 'region', default = '(( env|AWS_DEFAULT_REGION ))'),
             TargetParameter('aws_ami_id', 'source_ami'),
             TargetParameter('aws_ami_name', 'ami_name', default = 'packermate {{ isotime \"2006-01-02 15-04\" }}'),
