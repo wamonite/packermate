@@ -374,6 +374,10 @@ class ConfigStringLoader(object):
         return self.CONFIG_NAME
 
     @property
+    def path_list(self):
+        return None
+
+    @property
     def initial_config(self):
         return self._initial_config
 
