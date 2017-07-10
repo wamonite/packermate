@@ -307,9 +307,10 @@ def get_env_var(name, default = None):
 
 class ConfigFileLoader(object):
 
-    def __init__(self, file_name, path_list = None):
+    def __init__(self, file_name, path_list = None, initial_config = False):
         self._file_name = file_name
         self._path_list = path_list if path_list else ['']
+        self._initial_config = initial_config
         self._loaded_file_list = []
 
     @property
@@ -324,11 +325,19 @@ class ConfigFileLoader(object):
     def path_list(self):
         return self._path_list
 
+    @property
+    def initial_config(self):
+        return self._initial_config
+
     def get_data(self):
         config_data_list = []
 
+        path_list = self._path_list
+        if self._initial_config:
+            path_list = path_list[:1]
+
         self._loaded_file_list = []
-        for path in reversed(self._path_list):
+        for path in reversed(path_list):
             file_name = os.path.join(path, self._file_name)
             config_data = read_yaml_file(file_name)
 
@@ -349,9 +358,9 @@ class ConfigStringLoader(object):
 
     CONFIG_NAME = '<string>'
 
-    def __init__(self, config_string, path_list = None):
+    def __init__(self, config_string, initial_config = False):
         self._config_string = config_string
-        self._path_list = path_list if path_list else ['']
+        self._initial_config = initial_config
 
     @property
     def name_list(self):
@@ -362,8 +371,8 @@ class ConfigStringLoader(object):
         return self.CONFIG_NAME
 
     @property
-    def path_list(self):
-        return self._path_list
+    def initial_config(self):
+        return self._initial_config
 
     def get_data(self):
         config_data = read_yaml_string(self._config_string)
@@ -451,13 +460,13 @@ class Config(object):
         self._uuid_cache = {}
 
         if config_file_name is not None:
-            config_loader = ConfigFileLoader(config_file_name, path_list = path_list)
             self._config[CONFIG_FILE_NAME_KEY] = config_file_name
-            self._read_config(config_loader, initial_config = True)
+            config_loader = ConfigFileLoader(config_file_name, path_list = path_list, initial_config = True)
+            self._read_config(config_loader)
 
         if config_string is not None:
-            config_loader = ConfigStringLoader(config_string, path_list = path_list)
-            self._read_config(config_loader, initial_config = True)
+            config_loader = ConfigStringLoader(config_string, initial_config = True)
+            self._read_config(config_loader)
 
         if isinstance(override_list, list):
             override_lookup = self._parse_overrides(override_list)
@@ -521,10 +530,10 @@ class Config(object):
         for item in self._config.keys():
             yield item
 
-    def _read_config(self, config_loader, initial_config = False):
+    def _read_config(self, config_loader):
         self._read_config_core(config_loader)
 
-        if initial_config:
+        if config_loader.initial_config:
             log.info("Loaded config: {}".format(config_loader.names))
 
         self._read_config_includes(config_loader)
