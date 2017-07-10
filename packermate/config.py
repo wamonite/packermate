@@ -19,6 +19,9 @@ try:
     from botocore.exceptions import BotoCoreError
     BOTO3_AVAILABLE = True
 
+    log_boto = logging.getLogger('botocore')
+    log_boto.setLevel(logging.WARNING)
+
 except ImportError:
     BOTO3_AVAILABLE = False
 
