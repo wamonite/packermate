@@ -361,8 +361,9 @@ class ConfigStringLoader(object):
 
     CONFIG_NAME = '<string>'
 
-    def __init__(self, config_string, initial_config = False):
+    def __init__(self, config_string, path_list = None, initial_config = False):
         self._config_string = config_string
+        self._path_list = path_list
         self._initial_config = initial_config
 
     @property
@@ -375,7 +376,7 @@ class ConfigStringLoader(object):
 
     @property
     def path_list(self):
-        return None
+        return self._path_list
 
     @property
     def initial_config(self):
@@ -472,7 +473,7 @@ class Config(object):
             self._read_config(config_loader)
 
         if config_string is not None:
-            config_loader = ConfigStringLoader(config_string, initial_config = True)
+            config_loader = ConfigStringLoader(config_string, path_list = path_list, initial_config = True)
             self._read_config(config_loader)
 
         if isinstance(override_list, list):
