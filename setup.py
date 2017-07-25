@@ -5,7 +5,7 @@ with open('README.rst', 'r') as f:
 
 setup(
     name = 'packermate',
-    version = '0.11.0',
+    version = '0.12.0',
     description = 'Generate and run Packer build configurations from a simple YAML definition',
     long_description = readme,
     license = 'MIT',
@@ -37,7 +37,7 @@ setup(
     install_requires = [
         'pyaml==16.12.2',
         'semantic_version==2.6.0',
-        'requests==2.18.1',
+        'requests==2.18.2',
     ],
     extras_require = {
         'AWS':  [
