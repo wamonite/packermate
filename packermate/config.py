@@ -172,6 +172,8 @@ class ConfigValue(object):
             self.ProcessFuncInfo(('file', 'text'), 3, self._get_file_text),
             self.ProcessFuncInfo(('file', 'data'), 3, self._get_file_data),
             self.ProcessFuncInfo(('file', 'tgz'), 4, self._get_tgz_file_data),
+            self.ProcessFuncInfo(('if',), 3, self._get_if_condition),
+            self.ProcessFuncInfo(('if',), 4, self._get_if_condition),
         ]
 
         process_func_found = None
@@ -203,7 +205,7 @@ class ConfigValue(object):
 
     def _process_default_value(self, value, default = ''):
         if not value:
-            raise ConfigException('Default parameter not set')
+            raise ConfigException("'default' parameter not set")
 
         try:
             return self._process_name(value) or default
@@ -284,6 +286,19 @@ class ConfigValue(object):
 
     def _get_tgz_file_data(self, tar_name, file_name):
         return self._get_tar_file_data('tgz', tar_name, file_name)
+
+    def _get_if_condition(self, value, then_val, else_val = ''):
+        if not value:
+            raise ConfigException("'if' parameter not set")
+
+        try:
+            if self._process_name(value):
+                return then_val
+
+        except ConfigException:
+            pass
+
+        return else_val
 
     @staticmethod
     def _get_aws_account(default = None):
