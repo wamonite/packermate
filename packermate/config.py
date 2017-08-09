@@ -165,8 +165,8 @@ class ConfigValue(object):
             self.ProcessFuncInfo(('uuid',), 2, self._config.get_uuid),
             self.ProcessFuncInfo(('base64_encode',), 2, base64.b64encode),
             self.ProcessFuncInfo(('base64_decode',), 2, base64.b64decode),
-            self.ProcessFuncInfo(('default',), 2, self._process_default_value),
-            self.ProcessFuncInfo(('default',), 3, self._process_default_value),
+            self.ProcessFuncInfo(('default',), 2, self._get_default_value),
+            self.ProcessFuncInfo(('default',), 3, self._get_default_value),
             self.ProcessFuncInfo(('lookup',), 3, self._get_lookup_value),
             self.ProcessFuncInfo(('lookup_optional',), 3, self._get_lookup_optional_value),
             self.ProcessFuncInfo(('file', 'text'), 3, self._get_file_text),
@@ -203,7 +203,7 @@ class ConfigValue(object):
 
         return getattr(self._config, name)
 
-    def _process_default_value(self, value, default = ''):
+    def _get_default_value(self, value, default = ''):
         if not value:
             raise ConfigException("'default' parameter not set")
 
