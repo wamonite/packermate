@@ -35,7 +35,7 @@ setup(
         ]
     },
     install_requires = [
-        'pyaml==17.7.2',
+        'pyaml==17.8.0',
         'semantic_version==2.6.0',
         'requests==2.18.4',
     ],
