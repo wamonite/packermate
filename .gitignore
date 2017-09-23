@@ -13,3 +13,4 @@ examples/output
 __pycache__
 .tox
 .coverage
+docs/_build

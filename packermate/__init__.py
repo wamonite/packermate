@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from .command import Builder, BuilderException
@@ -11,4 +10,4 @@ __title__ = 'packermate'
 __version__ = '0.13.0'
 __author__ = 'Warren Moore'
 __license__ = 'MIT'
-__copyright__ = 'Copyright (c) 2016 Warren Moore'
+__copyright__ = 'Copyright (c) 2015 Warren Moore'
