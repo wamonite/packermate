@@ -5,6 +5,7 @@ from .target import TargetBase, TargetException, TargetParameter, parse_paramete
 from .file_utils import unarchive_file
 import re
 import logging
+from copy import deepcopy
 
 
 log = logging.getLogger('packermate.aws')
@@ -92,21 +93,30 @@ class TargetAWS(TargetBase):
         )
         parse_parameters(config_key_list, self._config, packer_amazon_ebs)
 
+        # default block mappings
+        default_block_device_mappings = [
+            {
+                'device_name': '/dev/sda1',
+                'delete_on_termination': True
+            }
+        ]
+
+        ami_block_device_mappings = deepcopy(default_block_device_mappings)
+        launch_block_device_mappings = deepcopy(default_block_device_mappings)
+
+        # encryption options
+        if 'kms_key_id' in packer_amazon_ebs:
+            packer_amazon_ebs['encrypt_boot'] = True
+
         # add extra root partition options
         for key_name in ('volume_size', 'volume_type'):
             if key_name in packer_amazon_ebs:
-                default_block_device_mappings = [
-                    {
-                        'device_name': '/dev/sda1',
-                        'delete_on_termination': True
-                    }
-                ]
-                ami_block_device_mapping = packer_amazon_ebs.setdefault('ami_block_device_mappings', default_block_device_mappings)
-                launch_block_device_mapping = packer_amazon_ebs.setdefault('launch_block_device_mappings', default_block_device_mappings)
-
-                ami_block_device_mapping[0][key_name] = packer_amazon_ebs[key_name]
-                launch_block_device_mapping[0][key_name] = packer_amazon_ebs[key_name]
+                ami_block_device_mappings[0][key_name] = packer_amazon_ebs[key_name]
+                launch_block_device_mappings[0][key_name] = packer_amazon_ebs[key_name]
 
                 del(packer_amazon_ebs[key_name])
+
+        packer_amazon_ebs['ami_block_device_mappings'] = ami_block_device_mappings
+        packer_amazon_ebs['launch_block_device_mappings'] = launch_block_device_mappings
 
         self._packer_config.add_builder(packer_amazon_ebs)
