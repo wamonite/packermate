@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, unicode_literals
@@ -36,7 +35,7 @@ def configure_logging(level = LOG_LEVEL, format_message = LOG_FORMAT, format_dat
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description = 'packer tool',
+        description = 'packermate',
         formatter_class = argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('-c', '--config', default = DEFAULT_CONFIG_FILE_NAME, help = 'config file')
