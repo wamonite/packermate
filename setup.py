@@ -5,7 +5,7 @@ with open('README.rst', 'r') as f:
 
 setup(
     name = 'packermate',
-    version = '0.14.0',
+    version = '0.15.0',
     description = 'Generate and run Packer build configurations from a simple YAML definition',
     long_description = readme,
     license = 'MIT',
