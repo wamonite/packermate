@@ -90,6 +90,7 @@ class TargetAWS(TargetBase):
             TargetParameter('aws_ami_builder_tags', 'run_tags', value_type = dict, required = False),
             TargetParameter('aws_iam_instance_profile', 'iam_instance_profile', required = False),
             TargetParameter('aws_kms_id', 'kms_key_id', required = False),
+            TargetParameter('aws_ena_support', 'ena_support', required = False),
         )
         parse_parameters(config_key_list, self._config, packer_amazon_ebs)
 
