@@ -37,7 +37,7 @@ setup(
     install_requires = [
         'pyaml==17.12.1',
         'semantic_version==2.6.0',
-        'requests==2.19.0',
+        'requests==2.19.1',
     ],
     extras_require = {
         'AWS':  [
