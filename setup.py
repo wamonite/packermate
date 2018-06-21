@@ -41,7 +41,7 @@ setup(
     ],
     extras_require = {
         'AWS':  [
-            "boto3==1.7.42"
+            "boto3==1.7.43"
         ]
     },
     zip_safe = False
