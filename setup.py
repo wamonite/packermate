@@ -35,13 +35,13 @@ setup(
         ]
     },
     install_requires = [
-        'pyaml==16.12.2',
-        'semantic_version==2.6.0',
-        'requests==2.18.1',
+        'pyaml',
+        'semantic_version',
+        'requests',
     ],
     extras_require = {
         'AWS':  [
-            "boto3==1.4.4"
+            "boto3"
         ]
     },
     zip_safe = False

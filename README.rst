@@ -10,9 +10,6 @@ packermate
 .. image:: https://codecov.io/gh/wamonite/packermate/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/wamonite/packermate
 
-.. image:: https://requires.io/github/wamonite/packermate/requirements.svg?branch=master
-    :target: https://requires.io/github/wamonite/packermate/requirements/?branch=master
-
 .. image:: https://codeclimate.com/github/wamonite/packermate/badges/gpa.svg
    :target: https://codeclimate.com/github/wamonite/packermate
 
